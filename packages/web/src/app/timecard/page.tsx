@@ -12,17 +12,15 @@ import {
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 
-// Client display names
-const CLIENT_NAMES: Record<string, string> = {
-  Acme: "Acme Corp",
-  ExOrg: "Example Organization",
-};
-
-// Client colors
-const CLIENT_COLORS: Record<string, string> = {
-  Acme: "bg-teal-500/20 text-teal-300",
-  ExOrg: "bg-indigo-500/20 text-indigo-300",
-};
+// Default client colors (cycles through for orgs not in the list)
+const CLIENT_COLOR_PALETTE = [
+  "bg-teal-500/20 text-teal-300",
+  "bg-indigo-500/20 text-indigo-300",
+  "bg-amber-500/20 text-amber-300",
+  "bg-rose-500/20 text-rose-300",
+  "bg-emerald-500/20 text-emerald-300",
+  "bg-purple-500/20 text-purple-300",
+];
 
 function formatHours(hours: number): string {
   return hours.toFixed(1);
@@ -55,6 +53,28 @@ export default function TimecardPage() {
   // Fetch data
   const summaryQuery = trpc.timecard.summary.useQuery();
   const listQuery = trpc.timecard.list.useQuery();
+  const orgsQuery = trpc.organizations.list.useQuery();
+
+  // Build org display names and colors from database
+  const orgDisplayNames = useMemo(() => {
+    const names: Record<string, string> = {};
+    orgsQuery.data?.forEach(org => {
+      names[org.slug] = org.name;
+    });
+    return names;
+  }, [orgsQuery.data]);
+
+  const orgColors = useMemo(() => {
+    const colors: Record<string, string> = {};
+    orgsQuery.data?.forEach((org, i) => {
+      colors[org.slug] = CLIENT_COLOR_PALETTE[i % CLIENT_COLOR_PALETTE.length];
+    });
+    return colors;
+  }, [orgsQuery.data]);
+
+  // Helper to get display name (falls back to slug)
+  const getClientName = (slug: string) => orgDisplayNames[slug] || slug;
+  const getClientColor = (slug: string) => orgColors[slug] || "bg-zinc-700 text-zinc-300";
 
   // Extract data
   const summary = summaryQuery.data;
@@ -187,7 +207,7 @@ export default function TimecardPage() {
               >
                 <div className="flex items-center gap-2 text-zinc-500 text-[12px] uppercase tracking-wider mb-2">
                   <Building2 className="h-4 w-4" />
-                  {CLIENT_NAMES[client] || client}
+                  {getClientName(client) || client}
                 </div>
                 <div className="text-2xl font-semibold">
                   {formatHours(clientHours)}
@@ -215,7 +235,7 @@ export default function TimecardPage() {
             <option value="all">All Clients</option>
             {summary?.clients.map((client) => (
               <option key={client} value={client}>
-                {CLIENT_NAMES[client] || client}
+                {getClientName(client) || client}
               </option>
             ))}
           </select>
@@ -276,7 +296,7 @@ export default function TimecardPage() {
                     {Object.entries(monthTotals.byClient).map(([client, hours]) => (
                       <span
                         key={client}
-                        className={`px-2 py-0.5 rounded ${CLIENT_COLORS[client] || "bg-zinc-700 text-zinc-300"}`}
+                        className={`px-2 py-0.5 rounded ${getClientColor(client) || "bg-zinc-700 text-zinc-300"}`}
                       >
                         {client}: {formatHours(hours)}h
                       </span>
@@ -311,7 +331,7 @@ export default function TimecardPage() {
                             <td className="px-4 py-2">
                               <span
                                 className={`px-2 py-0.5 rounded text-[12px] ${
-                                  CLIENT_COLORS[entry.client] ||
+                                  getClientColor(entry.client) ||
                                   "bg-zinc-700 text-zinc-300"
                                 }`}
                               >

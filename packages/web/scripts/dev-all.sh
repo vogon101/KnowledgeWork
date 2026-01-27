@@ -68,10 +68,18 @@ SERVER_ENV="$PACKAGES_DIR/server/.env"
 if [ -f "$SERVER_ENV" ]; then
     CONTENT_PATH=$(grep -E '^KNOWLEDGE_BASE_PATH=' "$SERVER_ENV" | cut -d'"' -f2)
     DATABASE_PATH=$(grep -E '^DATABASE_URL=' "$SERVER_ENV" | cut -d'"' -f2 | sed 's/^file://')
+    DEFAULT_OWNER=$(grep -E '^DEFAULT_OWNER=' "$SERVER_ENV" | cut -d'=' -f2 | tr -d '"')
+fi
+# Read owner from .env.local if exists (takes precedence)
+LOCAL_ENV="$WEB_DIR/.env.local"
+if [ -f "$LOCAL_ENV" ]; then
+    LOCAL_OWNER=$(grep -E '^NEXT_PUBLIC_DEFAULT_OWNER=' "$LOCAL_ENV" | cut -d'=' -f2)
+    DEFAULT_OWNER=${LOCAL_OWNER:-$DEFAULT_OWNER}
 fi
 # Fallback to defaults if not found
 CONTENT_PATH=${CONTENT_PATH:-$ROOT_DIR/content}
 DATABASE_PATH=${DATABASE_PATH:-$PACKAGES_DIR/server/data/items.db}
+DEFAULT_OWNER=${DEFAULT_OWNER:-Alice}
 
 # Write .env.development.local with the ports
 ENV_FILE="$WEB_DIR/.env.development.local"
@@ -87,6 +95,7 @@ NEXT_PUBLIC_TASK_SERVICE_URL=http://localhost:$TASK_SERVICE_PORT
 CONTENT_PATH=$CONTENT_PATH
 DATABASE_PATH=$DATABASE_PATH
 KNOWLEDGE_BASE_PATH=$CONTENT_PATH
+NEXT_PUBLIC_DEFAULT_OWNER=$DEFAULT_OWNER
 EOF
 
 echo "Environment written to .env.development.local"
