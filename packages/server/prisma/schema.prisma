@@ -1,0 +1,420 @@
+// Unified Item Model Schema
+// Based on: personal/projects/kw-web/specs/unified-item-model.md
+// Migration from: task-service/schema.sql
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// =============================================================================
+// ORGANIZATIONS
+// =============================================================================
+
+model Organization {
+  id          Int     @id @default(autoincrement())
+  slug        String  @unique  // e.g., "acme-corp", "example-org"
+  name        String           // e.g., "Acme Corp", "Centre for Example Org"
+  shortName   String? @map("short_name")  // e.g., "YA", "ExOrg"
+  description String?
+  // Color theme: indigo, teal, rose, orange (distinct from badge semantic colors)
+  color       String? @default("indigo")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  people   Person[]
+  projects Project[]
+
+  @@map("organizations")
+}
+
+// =============================================================================
+// PEOPLE
+// =============================================================================
+
+model Person {
+  id    Int     @id @default(autoincrement())
+  name  String
+  email String?
+
+  // Organization (optional, references organizations table)
+  orgId       Int?          @map("org_id")
+  organization Organization? @relation(fields: [orgId], references: [id])
+
+  // Legacy org column (kept during migration, will be removed later)
+  org String?
+
+  // Airtable CRM links
+  airtableYaId String? @map("airtable_ya_id")
+  airtableSvId String? @map("airtable_sv_id")
+
+  notes     String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  ownedItems       Item[]             @relation("ItemOwner")
+  itemRelations    ItemPerson[]
+  meetingAttendees MeetingAttendee[]
+
+  @@index([name])
+  @@map("people")
+}
+
+// =============================================================================
+// PROJECTS (File system mapped)
+// =============================================================================
+
+model Project {
+  id        Int     @id @default(autoincrement())
+  slug      String  // Note: unique per org, not globally (see @@unique below)
+  name      String
+  status    String? // active, planning, paused, completed, archived
+  priority  Int?
+  isGeneral Boolean @default(false) @map("is_general") // General project for org-level tasks
+
+  // Organization (references organizations table)
+  orgId        Int?          @map("org_id")
+  organization Organization? @relation(fields: [orgId], references: [id])
+
+  // Legacy org column (kept during migration, will be removed later)
+  org String?
+
+  // Hierarchy
+  parentId Int?     @map("parent_id")
+  parent   Project? @relation("ProjectHierarchy", fields: [parentId], references: [id])
+  children Project[] @relation("ProjectHierarchy")
+
+  // File system sync
+  filePath     String?   @map("file_path")
+  fileHash     String?   @map("file_hash")
+  lastSyncedAt DateTime? @map("last_synced_at")
+
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  items           Item[]
+  meetingProjects MeetingProject[]
+
+  @@unique([slug, orgId]) // Slug is unique within an org, allowing same slug in different orgs
+  @@index([orgId])
+  @@index([status])
+  @@map("projects")
+}
+
+// =============================================================================
+// ITEMS (Unified: tasks, goals, workstreams within projects)
+// =============================================================================
+
+model Item {
+  id          Int     @id @default(autoincrement())
+  title       String
+  description String?
+
+  // Type: task, goal, workstream (project-level workstreams are Items, not separate table)
+  itemType String @default("task") @map("item_type")
+
+  // Status: pending, in_progress, complete, blocked, cancelled, deferred, active, paused
+  status   String @default("pending")
+  priority Int?
+
+  // Dates
+  dueDate       DateTime? @map("due_date")
+  attentionDate DateTime? @map("attention_date") // Soft date for surfacing
+  targetPeriod  String?   @map("target_period") // 2026-Q1, 2026-01, etc.
+
+  // Hierarchy
+  parentId  Int?  @map("parent_id")
+  parent    Item? @relation("ItemHierarchy", fields: [parentId], references: [id])
+  children  Item[] @relation("ItemHierarchy")
+
+  projectId Int?     @map("project_id")
+  project   Project? @relation(fields: [projectId], references: [id])
+
+  position Int @default(0) // Sort order within parent
+
+  // Ownership
+  ownerId Int?    @map("owner_id")
+  owner   Person? @relation("ItemOwner", fields: [ownerId], references: [id])
+
+  // File system sync (for workstream items that map to files)
+  filePath     String?   @map("file_path")
+  fileHash     String?   @map("file_hash")
+  lastSyncedAt DateTime? @map("last_synced_at")
+
+  // Source tracking
+  sourceType      String?  @map("source_type") // meeting, readme, todoist, manual, import
+  sourcePath      String?  @map("source_path")
+  sourceLine      Int?     @map("source_line")
+  sourceMeetingId Int?     @map("source_meeting_id")
+  sourceMeeting   Meeting? @relation("ItemSourceMeeting", fields: [sourceMeetingId], references: [id])
+
+  // Routine support (kept for backward compatibility)
+  recurrenceRule   String? @map("recurrence_rule") // daily, weekly, monthly, etc.
+  recurrenceTime   String? @map("recurrence_time") // 17:00
+  recurrenceDays   String? @map("recurrence_days") // JSON array
+  recurrenceMonths String? @map("recurrence_months") // JSON array
+  routineParentId  Int?    @map("routine_parent_id")
+  routineParent    Item?   @relation("RoutineInstances", fields: [routineParentId], references: [id])
+  routineInstances Item[]  @relation("RoutineInstances")
+
+  // Extensibility
+  metadata String? // JSON
+
+  // Timestamps
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  completedAt DateTime? @map("completed_at")
+  deletedAt   DateTime? @map("deleted_at") // Soft delete
+
+  // Relations
+  checkIns           CheckIn[]
+  activities         Activity[]
+  itemPeople         ItemPerson[]
+  linksFrom          ItemLink[]        @relation("LinkFrom")
+  linksTo            ItemLink[]        @relation("LinkTo")
+  meetingItems       MeetingItem[]
+  tags               ItemTag[]
+  attachments        ItemAttachment[]
+  routineCompletions RoutineCompletion[]
+  routineSkips       RoutineSkip[]
+
+  @@index([status])
+  @@index([ownerId])
+  @@index([projectId])
+  @@index([dueDate])
+  @@index([targetPeriod])
+  @@index([parentId])
+  @@index([routineParentId])
+  @@index([itemType])
+  @@index([sourceMeetingId])
+  @@map("items")
+}
+
+// =============================================================================
+// ITEM RELATIONSHIPS
+// =============================================================================
+
+// Many-to-many links between items (blocks, related, duplicate)
+model ItemLink {
+  id        Int      @id @default(autoincrement())
+  fromId    Int      @map("from_id")
+  toId      Int      @map("to_id")
+  linkType  String   @map("link_type") // blocks, related, duplicate
+  createdAt DateTime @default(now()) @map("created_at")
+
+  from Item @relation("LinkFrom", fields: [fromId], references: [id], onDelete: Cascade)
+  to   Item @relation("LinkTo", fields: [toId], references: [id], onDelete: Cascade)
+
+  @@unique([fromId, toId, linkType])
+  @@index([toId])
+  @@map("item_links")
+}
+
+// Item-Person relationships (waiting_on, assignee, etc.)
+model ItemPerson {
+  id        Int      @id @default(autoincrement())
+  itemId    Int      @map("item_id")
+  personId  Int      @map("person_id")
+  role      String   // assignee, waiting_on, stakeholder, reviewer, cc
+  createdAt DateTime @default(now()) @map("created_at")
+
+  item   Item   @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([itemId, personId, role])
+  @@index([personId])
+  @@map("item_people")
+}
+
+// =============================================================================
+// CHECK-INS (Multiple follow-up dates per item)
+// =============================================================================
+
+model CheckIn {
+  id        Int       @id @default(autoincrement())
+  itemId    Int       @map("item_id")
+  date      DateTime
+  note      String?
+  completed Boolean   @default(false)
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  item Item @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([itemId])
+  @@index([date])
+  @@map("check_ins")
+}
+
+// =============================================================================
+// ACTIVITY LOG
+// =============================================================================
+
+model Activity {
+  id        Int      @id @default(autoincrement())
+  itemId    Int      @map("item_id")
+  action    String   // created, status_changed, due_date_set, linked, etc.
+  detail    String?  // Human-readable description
+  oldValue  String?  @map("old_value") // JSON if complex
+  newValue  String?  @map("new_value")
+  createdBy String?  @map("created_by") // user, ai, sync
+  createdAt DateTime @default(now()) @map("created_at")
+
+  item Item @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([itemId])
+  @@index([createdAt])
+  @@map("activities")
+}
+
+// =============================================================================
+// MEETINGS
+// =============================================================================
+
+model Meeting {
+  id       Int      @id @default(autoincrement())
+  title    String
+  date     DateTime
+  path     String   @unique // Path to markdown file
+  location String?
+  notes    String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  projects    MeetingProject[]
+  attendees   MeetingAttendee[]
+  sourceItems Item[]        @relation("ItemSourceMeeting")
+  meetingItems MeetingItem[]
+
+  @@index([date])
+  @@index([path])
+  @@map("meetings")
+}
+
+model MeetingProject {
+  meetingId Int     @map("meeting_id")
+  projectId Int     @map("project_id")
+  isPrimary Boolean @default(false) @map("is_primary")
+
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([meetingId, projectId])
+  @@map("meeting_projects")
+}
+
+model MeetingAttendee {
+  meetingId Int @map("meeting_id")
+  personId  Int @map("person_id")
+
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  person  Person  @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@id([meetingId, personId])
+  @@map("meeting_attendees")
+}
+
+// Meeting-Item links (discussed, created, blocked_by, progressed)
+model MeetingItem {
+  id        Int      @id @default(autoincrement())
+  meetingId Int      @map("meeting_id")
+  itemId    Int      @map("item_id")
+  relation  String   // discussed, created, blocked_by, progressed
+  createdAt DateTime @default(now()) @map("created_at")
+
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  item    Item    @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([meetingId, itemId, relation])
+  @@index([itemId])
+  @@map("meeting_items")
+}
+
+// =============================================================================
+// TAGS
+// =============================================================================
+
+model Tag {
+  id          Int     @id @default(autoincrement())
+  name        String  @unique
+  color       String?
+  description String?
+
+  items ItemTag[]
+
+  @@map("tags")
+}
+
+model ItemTag {
+  itemId Int @map("item_id")
+  tagId  Int @map("tag_id")
+
+  item Item @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  tag  Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([itemId, tagId])
+  @@index([tagId])
+  @@map("item_tags")
+}
+
+// =============================================================================
+// ATTACHMENTS
+// =============================================================================
+
+model ItemAttachment {
+  id             Int      @id @default(autoincrement())
+  itemId         Int      @map("item_id")
+  path           String
+  label          String?
+  attachmentType String?  @map("attachment_type")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  item Item @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([itemId])
+  @@map("item_attachments")
+}
+
+// =============================================================================
+// ROUTINES (Completion/Skip tracking - kept for backward compatibility)
+// =============================================================================
+
+model RoutineCompletion {
+  id            Int      @id @default(autoincrement())
+  routineId     Int      @map("routine_id")
+  completedDate DateTime @map("completed_date")
+  notes         String?
+  completedAt   DateTime @default(now()) @map("completed_at")
+
+  routine Item @relation(fields: [routineId], references: [id], onDelete: Cascade)
+
+  @@unique([routineId, completedDate])
+  @@index([routineId])
+  @@index([completedDate])
+  @@map("routine_completions")
+}
+
+model RoutineSkip {
+  id        Int      @id @default(autoincrement())
+  routineId Int      @map("routine_id")
+  skipDate  DateTime @map("skip_date")
+  notes     String?
+  skippedAt DateTime @default(now()) @map("skipped_at")
+
+  routine Item @relation(fields: [routineId], references: [id], onDelete: Cascade)
+
+  @@unique([routineId, skipDate])
+  @@index([routineId])
+  @@index([skipDate])
+  @@map("routine_skips")
+}
+

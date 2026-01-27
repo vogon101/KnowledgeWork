@@ -1,0 +1,32 @@
+{
+  "name": "@kw/api-types",
+  "version": "1.0.0",
+  "description": "Shared Zod schemas and TypeScript types for Knowledge Work API",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./schemas/*": {
+      "import": "./dist/schemas/*.js",
+      "types": "./dist/schemas/*.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "pnpm exec tsc",
+    "dev": "pnpm exec tsc --watch",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  },
+  "peerDependencies": {
+    "zod": "^3.0.0"
+  }
+}

@@ -1,0 +1,45 @@
+# Environment variables
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Build outputs
+packages/*/dist/
+content/.claude/skills/*/dist/
+
+# Turborepo
+.turbo/
+
+# Next.js
+.next/
+
+# Test coverage
+coverage/
+
+# Temporary Excel files
+~$*.xlsx
+
+# Local only
+.obsidian/
+.claude/settings.local.json
+
+# Database files
+*.db
+
+# Backups (may contain personal data)
+packages/server/backups/

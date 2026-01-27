@@ -1,0 +1,25 @@
+{
+  "name": "@kw/gmail-cli",
+  "version": "1.0.0",
+  "description": "CLI for Gmail integration via Knowledge Work",
+  "type": "module",
+  "bin": {
+    "gmail-cli": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/cli.ts",
+    "start": "node dist/cli.js"
+  },
+  "dependencies": {
+    "@kw/api-types": "workspace:*",
+    "@trpc/client": "^11.0.0-rc.682",
+    "commander": "^12.1.0",
+    "superjson": "^2.2.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.7",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}

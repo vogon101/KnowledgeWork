@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [[ \"$TOOL_INPUT\" == *packages/* ]]; then cd $CLAUDE_PROJECT_DIR && pnpm exec tsc --noEmit 2>&1 | head -10 || true; fi",
+            "timeout": 30000
+          }
+        ]
+      }
+    ]
+  }
+}

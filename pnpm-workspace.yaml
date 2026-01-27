@@ -1,0 +1,4 @@
+packages:
+  - 'packages/*'
+  - 'skills/task-cli'
+  - 'skills/gmail'

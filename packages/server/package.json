@@ -1,0 +1,43 @@
+{
+  "name": "@kw/server",
+  "version": "1.0.0",
+  "description": "Task management API service for Knowledge Work",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "db:init": "tsx src/db-init.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@kw/api-types": "workspace:*",
+    "@prisma/adapter-better-sqlite3": "^7.2.0",
+    "@prisma/client": "^7.2.0",
+    "@trpc/server": "^11.0.0-rc.682",
+    "better-sqlite3": "^11.7.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^4.21.2",
+    "googleapis": "^170.1.0",
+    "gray-matter": "^4.0.3",
+    "prisma": "^7.2.0",
+    "socket.io": "^4.8.3",
+    "superjson": "^2.2.2",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.7",
+    "@types/supertest": "^6.0.3",
+    "@vitest/coverage-v8": "^4.0.17",
+    "supertest": "^7.2.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "vitest": "^4.0.17"
+  }
+}
