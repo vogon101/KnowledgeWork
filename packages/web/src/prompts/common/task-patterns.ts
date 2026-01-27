@@ -18,6 +18,17 @@ When processing notes, detect patterns that indicate follow-ups on existing work
 | "Chase Y about X" | "Chase vendor about delivery" | Search for task about "vendor" or "delivery" |
 | "Check on X" | "Check on nuclear tracker progress" | Search for task about "nuclear tracker" |
 | "Remind Y about X" | "Remind James about review" | Search for task about "review" with James |
+| "Check in with Y" | "Check in with John" | Search for task owned by John, add check-in reminder |
+
+### Patterns That Create New Tasks (Assigned to Others)
+
+| Pattern | Example | Action |
+|---------|---------|--------|
+| "Y to do X" | "James to review doc" | Create task assigned to James |
+| "Ask Y to X" | "Ask Sarah to send report" | Create task assigned to Sarah |
+| "Get X from Y" | "Get feedback from John" | Create task assigned to John |
+
+**Key distinction**: "Check in with Y" = add a check-in reminder to chase Y's existing task. "Y to do X" = create new task for Y.
 
 ### How to Handle These Patterns
 
@@ -79,5 +90,34 @@ Note content: "Follow up with James on the nuclear report next week"
 4. If user selects check-in:
    \`\`\`bash
    tcli checkin-add T-1234 2026-01-27 --note "Follow up with James"
+   \`\`\`
+
+### Example: "Check in with John"
+
+Note content: "Check in with John next week"
+
+1. Search for tasks owned by John:
+   \`\`\`bash
+   tcli list --owner John
+   \`\`\`
+
+2. Found tasks:
+   - T-42: "John to review Q1 budget" (pending)
+   - T-55: "John to send contract" (pending)
+
+3. Propose to user - ask WHICH task to add check-in to:
+   \`\`\`json
+   {
+     "options": [
+       {"label": "Check-in on T-42: Review Q1 budget", "description": "Add reminder to chase John about budget review"},
+       {"label": "Check-in on T-55: Send contract", "description": "Add reminder to chase John about contract"},
+       {"label": "Create new task for John", "description": "If none of these match, create a new task"}
+     ]
+   }
+   \`\`\`
+
+4. User selects T-42, execute:
+   \`\`\`bash
+   tcli checkin-add T-42 2026-02-03 --note "Check in with John"
    \`\`\`
 `;

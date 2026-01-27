@@ -39,16 +39,23 @@ ${priority ? `- **Priority:** ${priority}` : "- **Priority:** Not specified"}
    - "next Monday" → use weekday Monday
    - Convert to YYYY-MM-DD format
 
-4. **Create the task**:
+4. **Determine task owner**:
+   - Default: Assign to the current user (check .claude/context/background.md for their name)
+   - "Ask [person] to X" or "[person] to do X": Assign to that person
+   - "I need to X" or just "X" with no person: Assign to current user
+
+   **Note**: "Check in with [person]" should NOT create a new task - it should add a check-in reminder to an existing task owned by that person. See task-patterns for check-in detection.
+
+5. **Create the task**:
    \`\`\`bash
    .claude/skills/task-cli/scripts/task-cli.sh create task "[title]" \\
-     --owner Alice \\
+     --owner [determined owner] \\
      ${project ? `--project ${project} \\` : ""}
      ${due ? `--due [YYYY-MM-DD] \\` : ""}
      ${priority ? `--priority ${priority}` : ""}
    \`\`\`
 
-5. **If due today**, add to diary:
+6. **If due today**, add to diary:
    - Add to Tasks for Today section
    - Format: \`- [ ] T-XXXX: [title]\`
 
@@ -65,7 +72,9 @@ ${priority ? `- **Priority:** ${priority}` : "- **Priority:** Not specified"}
 ### Due Date vs Check-ins
 
 - **Due date**: Hard deadline - task is overdue if not completed
-- **Check-in**: Soft reminder - "revisit this around X" (use for periodic reviews)
+- **Check-in**: Soft reminder for the main user to follow up (no owner needed)
+
+Check-ins are always reminders for the main user. The task may be owned by someone else (e.g., "John to review doc"), but the check-in is YOUR reminder to chase them.
 
 If the note says "remind me about" or "revisit this", create a task and add a check-in:
 \`\`\`bash

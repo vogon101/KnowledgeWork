@@ -384,6 +384,11 @@ Options:
   --blocked-by IDS   Comma-separated IDs of blocking items (creates task as blocked)
 ```
 
+**Default owner:** Tasks should be assigned to the main user by default (check `.claude/context/background.md` for their name). Only assign to someone else when explicitly indicated:
+- "John to do X" → assign to John
+- "Ask Sarah to X" → assign to Sarah
+- "Review the document" → assign to main user (default)
+
 **Note:** To set a soft reminder/review date, create the task first, then use `checkin-add`.
 
 ### update
@@ -866,14 +871,32 @@ AI executes only approved actions
 
 ### Smart Task Detection
 
-Patterns like "Discuss X with Y" or "Follow up on X" are detected and offered as **check-ins on existing tasks** instead of creating duplicates.
+Many phrases indicate follow-ups on existing work rather than new tasks. These should add **check-ins** to existing tasks instead of creating duplicates.
+
+**What is a check-in?** A check-in is a soft reminder date attached to a task. Unlike due dates (hard deadlines), check-ins are "revisit this around X" prompts. A task can have multiple check-ins. When the check-in date arrives, the task appears in `tcli checkins`. Completing a check-in marks the reminder done but keeps the task open.
+
+**Check-ins are for the main user.** Check-ins are reminders for YOU to follow up - they don't need an owner specified. The task itself may be owned by someone else (e.g., "John to review document"), but the check-in is your reminder to chase John.
+
+**Common use cases for check-ins:**
+- Delegated work: "Check in with John next week" → add check-in to John's task (reminder for you to chase him)
+- Long-running projects: Weekly review dates
+- Waiting on others: Reminder to chase
+
+**Detection patterns:**
 
 | Pattern | Action |
 |---------|--------|
+| "Check in with Y" | Search for task owned by Y, propose check-in |
 | "Discuss X with Y" | Search for task about X, propose check-in |
 | "Follow up on X" | Search for task about X, propose check-in |
 | "Waiting on Y for X" | Search for task about X, add waiting_on |
 | "Chase Y about X" | Search for task, propose check-in |
+
+**Workflow for "Check in with John":**
+1. Search: `tcli list --owner John`
+2. Present John's pending tasks to user
+3. User selects which task to add check-in to
+4. Execute: `tcli checkin-add T-XX YYYY-MM-DD --note "Check in with John"`
 
 ### Confirmation Prompt Format
 

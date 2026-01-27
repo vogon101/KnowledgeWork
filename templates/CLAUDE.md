@@ -11,7 +11,7 @@ Personal assistant for managing projects, tasks, and priorities.
 
 ## Context
 
-**User background**: See @.claude/context/background.md for personal details, roles, and key relationships.
+**User identity**: See @.claude/context/background.md for the user's name (for task assignment), roles, and key relationships. When creating tasks without an explicit assignee, assign to the user by name from this file.
 
 **Working memory**: @.claude/context/working-memory.md is auto-loaded — review for current context.
 
