@@ -33,6 +33,14 @@ A deadline. Task becomes overdue if not completed by this date. Use for:
 - Tasks with actual deadlines ("Submit report by Friday")
 - Meeting prep ("Prep agenda before 2pm meeting")
 
+**Accepted formats:**
+- `2026-01-28` — ISO date (YYYY-MM-DD)
+- `today`, `tod` — today's date
+- `tomorrow`, `tom` — tomorrow's date
+- `monday`, `tue`, etc. — next occurrence of that weekday
+- `+3d` — 3 days from today (works with any number)
+- `none` — clear due date (update only)
+
 ### Check-ins
 Scheduled dates to review progress on a task. A task can have **multiple check-ins**. When a check-in date arrives, the task appears in `tcli checkins`. Completing a check-in doesn't complete the task. Use for:
 - Long-running projects ("Check vendor status every Tuesday")
@@ -69,6 +77,44 @@ tcli create task "Website update" --project acme-corp/website
 - Tasks with clear project scope
 
 **Disambiguating projects:** Use `org/project` syntax when a project slug exists in multiple orgs.
+
+## Important Workflows
+
+### Creating Tasks from Meetings
+
+**ALWAYS use `tcli sync meeting <path>` to create tasks from meeting actions.**
+
+This command:
+- Automatically links tasks to source meeting
+- Sets owner from the Actions table
+- Assigns project from meeting frontmatter
+
+**NEVER manually create tasks for meeting actions** — they won't be linked to the meeting and will lack source tracking.
+
+```bash
+# Correct: Sync meeting actions to tasks
+tcli sync meeting acme-corp/meetings/2026/01/2026-01-28-standup.md
+
+# Wrong: Creating tasks manually loses meeting link
+tcli create task "Review budget"  # ❌ No meeting link
+```
+
+**Note:** There's no way to retroactively link an existing task to a meeting. If you accidentally created a task manually, delete it and re-sync the meeting.
+
+### Before Creating Tasks
+
+Always verify project slug exists before using it:
+
+```bash
+tcli projects | grep -i <keyword>
+```
+
+Use the **slug** from the first column, not the display name:
+- ✅ `--project kw-web` (actual slug)
+- ❌ `--project knowledge-work-web` (display name — won't work)
+
+For org-specific projects like `_general`, use `org/project` syntax:
+- ✅ `--project acme-corp/_general`
 
 ## Quick Reference
 
@@ -376,7 +422,7 @@ Types: task, workstream, goal
 Options:
   --owner NAME       Owner name
   --project SLUG     Project slug (supports org/slug for disambiguation)
-  --due DATE         Due date (YYYY-MM-DD) — hard deadline
+  --due DATE         Due date (today, tomorrow, +3d, monday, YYYY-MM-DD)
   --target PERIOD    Target period for goals (e.g., 2026-Q1, 2026-01)
   --priority N       Priority (1-4)
   --description TXT  Description
@@ -402,7 +448,7 @@ tcli update T-42,T-43,T-44 --status complete
 Options:
   --status STATUS       New status (pending, in_progress, complete, blocked, cancelled, deferred, active, paused)
   --priority N          New priority (1-4)
-  --due DATE            New due date (YYYY-MM-DD, or "none" to clear)
+  --due DATE            New due date (today, tomorrow, +3d, monday, YYYY-MM-DD, or "none" to clear)
   --target PERIOD       Target period (e.g., 2026-Q1)
   --title TEXT          New title
   --description TEXT    New description
@@ -923,6 +969,52 @@ All AI prompts for quick notes and batch updates are defined in:
 `packages/web/src/prompts/`
 
 These templates include confirmation instructions, task pattern detection, and type-specific processing rules.
+
+## Focus Tracking
+
+Track daily focus ratings and view trends.
+
+```bash
+# Record focus rating for today
+tcli focus --user 4 --ai 3 --notes "Productive morning, distracted afternoon"
+
+# Record with date
+tcli focus --date 2026-01-27 --user 3 --ai 3
+
+# View today's focus entry
+tcli focus
+
+# View specific date
+tcli focus --date 2026-01-25
+
+# List recent focus entries
+tcli focus-list                    # Last 30 entries
+tcli focus-list --week             # Last 7 days
+tcli focus-list --month 2026-01    # Specific month
+tcli focus-list --limit 10         # Limit results
+
+# View summary and trends
+tcli focus-summary                 # Last month
+tcli focus-summary --period week   # Last week
+tcli focus-summary --period all    # All time
+```
+
+**Rating scale:**
+- 1: Very distracted, little progress
+- 2: Struggled to focus, some progress
+- 3: Mixed focus, moderate progress
+- 4: Good focus, solid progress
+- 5: Excellent focus, highly productive
+
+**Output format:**
+```
+Focus entries (7)
+──────────────────────────────────────────────────────────
+Date         User  AI    Notes
+──────────────────────────────────────────────────────────
+2026-01-28    4/5   3/5  Productive morning
+2026-01-27    3/5   3/5  Distracted by meetings
+```
 
 ## Architecture
 

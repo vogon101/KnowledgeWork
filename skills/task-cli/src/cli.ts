@@ -32,6 +32,62 @@ async function resolveProjectId(projectArg: string): Promise<number> {
   return projectResult.id;
 }
 
+/**
+ * Parse a due date argument that may be relative (today, tomorrow, +3d) or ISO format.
+ * Returns ISO date string (YYYY-MM-DD) or null if "none".
+ */
+function parseDueDate(dueArg: string): string | null {
+  const lower = dueArg.toLowerCase().trim();
+
+  // "none" clears the date
+  if (lower === 'none') return null;
+
+  // Already ISO format
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dueArg)) return dueArg;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // Relative dates
+  if (lower === 'today' || lower === 'tod') {
+    return today.toISOString().split('T')[0];
+  }
+
+  if (lower === 'tomorrow' || lower === 'tom') {
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow.toISOString().split('T')[0];
+  }
+
+  // +Nd format (e.g., +3d, +7d)
+  const plusDaysMatch = lower.match(/^\+(\d+)d$/);
+  if (plusDaysMatch) {
+    const days = parseInt(plusDaysMatch[1], 10);
+    const future = new Date(today);
+    future.setDate(future.getDate() + days);
+    return future.toISOString().split('T')[0];
+  }
+
+  // Weekday names (next occurrence)
+  const weekdays = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  const shortWeekdays = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+
+  let dayIndex = weekdays.indexOf(lower);
+  if (dayIndex === -1) dayIndex = shortWeekdays.indexOf(lower);
+
+  if (dayIndex !== -1) {
+    const currentDay = today.getDay();
+    let daysToAdd = dayIndex - currentDay;
+    if (daysToAdd <= 0) daysToAdd += 7;
+    const target = new Date(today);
+    target.setDate(target.getDate() + daysToAdd);
+    return target.toISOString().split('T')[0];
+  }
+
+  // Fallback: return as-is (let the API validate)
+  return dueArg;
+}
+
 const program = new Command();
 
 program
@@ -549,9 +605,9 @@ program
 
       if (options.status) data.status = options.status as ItemStatus;
       if (options.priority) data.priority = options.priority;
-      // Handle due date - "none" clears the date
+      // Handle due date - supports relative dates (today, tomorrow, +3d, etc.)
       if (options.due) {
-        data.dueDate = options.due.toLowerCase() === 'none' ? null : options.due;
+        data.dueDate = parseDueDate(options.due);
       }
       if (options.target) data.targetPeriod = options.target;
       if (options.title) data.title = options.title;
@@ -691,7 +747,7 @@ program
         itemType: type as 'task' | 'workstream' | 'goal',
         ownerId,
         projectId,
-        dueDate: options.due,
+        dueDate: options.due ? parseDueDate(options.due) : undefined,
         targetPeriod: options.target,
         priority: options.priority,
         description: options.description,
@@ -2331,6 +2387,149 @@ program
       }
 
       console.log(`\nProgress: ${item.subtasksComplete}/${item.subtaskCount} complete`);
+    } catch (error) {
+      console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+      process.exit(1);
+    }
+  });
+
+// ============================================================================
+// Focus Commands
+// ============================================================================
+
+program
+  .command('focus')
+  .description('Record or view daily focus rating')
+  .option('--user <rating>', 'User focus rating (1-5)', parseInt)
+  .option('--ai <rating>', 'AI-assessed focus rating (1-5)', parseInt)
+  .option('--notes <notes>', 'User notes about focus')
+  .option('--ai-notes <notes>', 'AI notes about focus patterns')
+  .option('--date <date>', 'Date to record (YYYY-MM-DD, default: today)')
+  .action(async (options) => {
+    try {
+      // If no ratings provided, show today's entry
+      if (!options.user && !options.ai && !options.notes && !options.aiNotes) {
+        const date = options.date || new Date().toISOString().split('T')[0];
+        const result = await trpc.focus.get.query({ date });
+
+        if (!result.entry) {
+          console.log(`No focus entry for ${date}`);
+          return;
+        }
+
+        const entry = result.entry;
+        console.log(`Focus for ${entry.date}`);
+        console.log('─'.repeat(40));
+        console.log(`User rating:  ${entry.userRating ?? '-'}/5`);
+        console.log(`AI rating:    ${entry.aiRating ?? '-'}/5`);
+        if (entry.userNotes) console.log(`User notes:   ${entry.userNotes}`);
+        if (entry.aiNotes) console.log(`AI notes:     ${entry.aiNotes}`);
+        return;
+      }
+
+      // Record/update focus entry
+      const date = options.date || new Date().toISOString().split('T')[0];
+      const result = await trpc.focus.upsert.mutate({
+        date,
+        userRating: options.user,
+        aiRating: options.ai,
+        userNotes: options.notes,
+        aiNotes: options.aiNotes,
+      });
+
+      if (result.created) {
+        console.log(`Focus entry created for ${result.date}`);
+      } else {
+        console.log(`Focus entry updated for ${result.date}`);
+      }
+
+      if (options.user) console.log(`  User rating: ${options.user}/5`);
+      if (options.ai) console.log(`  AI rating: ${options.ai}/5`);
+      if (options.notes) console.log(`  Notes: ${options.notes}`);
+    } catch (error) {
+      console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+      process.exit(1);
+    }
+  });
+
+program
+  .command('focus-list')
+  .description('List focus ratings')
+  .option('--month <month>', 'Filter by month (YYYY-MM)')
+  .option('--week', 'Show last 7 days')
+  .option('--limit <n>', 'Number of entries to show', parseInt)
+  .action(async (options) => {
+    try {
+      let startDate: string | undefined;
+      let endDate: string | undefined;
+
+      if (options.month) {
+        startDate = `${options.month}-01`;
+        const [year, month] = options.month.split('-').map(Number);
+        const lastDay = new Date(year, month, 0).getDate();
+        endDate = `${options.month}-${lastDay.toString().padStart(2, '0')}`;
+      } else if (options.week) {
+        const today = new Date();
+        const weekAgo = new Date(today);
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        startDate = weekAgo.toISOString().split('T')[0];
+        endDate = today.toISOString().split('T')[0];
+      }
+
+      const result = await trpc.focus.list.query({
+        startDate,
+        endDate,
+        limit: options.limit || 30,
+      });
+
+      if (result.entries.length === 0) {
+        console.log('No focus entries found');
+        return;
+      }
+
+      console.log(`Focus entries (${result.entries.length})`);
+      console.log('─'.repeat(60));
+      console.log('Date         User  AI    Notes');
+      console.log('─'.repeat(60));
+
+      for (const entry of result.entries) {
+        const userR = entry.userRating !== null ? entry.userRating.toString() : '-';
+        const aiR = entry.aiRating !== null ? entry.aiRating.toString() : '-';
+        const notes = entry.userNotes ? entry.userNotes.slice(0, 35) : '';
+        console.log(`${entry.date}   ${userR.padStart(2)}/5  ${aiR.padStart(2)}/5  ${notes}`);
+      }
+    } catch (error) {
+      console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+      process.exit(1);
+    }
+  });
+
+program
+  .command('focus-summary')
+  .description('Show focus rating summary and trends')
+  .option('--period <period>', 'Period: week, month, all (default: month)')
+  .action(async (options) => {
+    try {
+      const result = await trpc.focus.summary.query({
+        period: options.period as 'week' | 'month' | 'all' | undefined,
+      });
+
+      console.log(`Focus Summary (${result.period})`);
+      console.log('─'.repeat(50));
+      console.log(`Entries:          ${result.entryCount}`);
+      console.log(`Avg user rating:  ${result.avgUserRating ?? '-'}/5`);
+      console.log(`Avg AI rating:    ${result.avgAiRating ?? '-'}/5`);
+
+      if (result.weeklyBreakdown && result.weeklyBreakdown.length > 0) {
+        console.log('\nWeekly breakdown:');
+        console.log('Week of       User  AI    Entries');
+        console.log('─'.repeat(40));
+        for (const week of result.weeklyBreakdown.slice(0, 8)) {
+          const userR = week.avgUserRating !== null ? week.avgUserRating.toFixed(1) : '-';
+          const aiR = week.avgAiRating !== null ? week.avgAiRating.toFixed(1) : '-';
+          console.log(`${week.weekStart}   ${userR.padStart(4)}  ${aiR.padStart(4)}  ${week.entryCount}`);
+        }
+      }
     } catch (error) {
       console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
       process.exit(1);

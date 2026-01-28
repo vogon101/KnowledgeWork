@@ -9,6 +9,8 @@ import {
   Loader2,
   ChevronDown,
   ChevronRight,
+  Focus,
+  TrendingUp,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 
@@ -21,6 +23,15 @@ const CLIENT_COLOR_PALETTE = [
   "bg-emerald-500/20 text-emerald-300",
   "bg-purple-500/20 text-purple-300",
 ];
+
+// Rating color mapping
+const RATING_COLORS: Record<number, string> = {
+  1: "bg-red-500/30 text-red-300",
+  2: "bg-orange-500/30 text-orange-300",
+  3: "bg-yellow-500/30 text-yellow-300",
+  4: "bg-lime-500/30 text-lime-300",
+  5: "bg-green-500/30 text-green-300",
+};
 
 function formatHours(hours: number): string {
   return hours.toFixed(1);
@@ -45,7 +56,199 @@ function getMonthName(monthStr: string): string {
   return `${monthNames[parseInt(month) - 1]} ${year}`;
 }
 
-export default function TimecardPage() {
+function getRatingColor(rating: number | null): string {
+  if (rating === null) return "bg-zinc-800 text-zinc-500";
+  return RATING_COLORS[Math.round(rating)] || "bg-zinc-700 text-zinc-300";
+}
+
+// ============================================================================
+// Focus Tracker Component
+// ============================================================================
+
+function FocusTracker() {
+  const [period, setPeriod] = useState<"week" | "month" | "all">("month");
+  const focusSummaryQuery = trpc.focus.summary.useQuery({ period });
+  const focusListQuery = trpc.focus.list.useQuery({ limit: 60 });
+
+  if (focusSummaryQuery.isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-zinc-500" />
+      </div>
+    );
+  }
+
+  if (focusSummaryQuery.isError) {
+    return (
+      <div className="p-6 text-red-400">Could not load focus data</div>
+    );
+  }
+
+  const summary = focusSummaryQuery.data;
+  const entries = focusListQuery.data?.entries || [];
+
+  return (
+    <div>
+      {/* Summary Cards */}
+      <div className="px-6 py-4 border-b border-zinc-800">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {/* Entry Count */}
+          <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
+            <div className="flex items-center gap-2 text-zinc-500 text-[12px] uppercase tracking-wider mb-2">
+              <Calendar className="h-4 w-4" />
+              Entries
+            </div>
+            <div className="text-2xl font-semibold">
+              {summary?.entryCount || 0}
+            </div>
+            <div className="text-[12px] text-zinc-500 mt-1">
+              {summary?.period}
+            </div>
+          </div>
+
+          {/* Average User Rating */}
+          <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
+            <div className="flex items-center gap-2 text-zinc-500 text-[12px] uppercase tracking-wider mb-2">
+              <Focus className="h-4 w-4" />
+              User Average
+            </div>
+            <div className={`text-2xl font-semibold ${summary?.avgUserRating ? "text-zinc-100" : "text-zinc-500"}`}>
+              {summary?.avgUserRating != null ? `${summary.avgUserRating}/5` : "—"}
+            </div>
+            <div className="text-[12px] text-zinc-500 mt-1">
+              Your focus rating
+            </div>
+          </div>
+
+          {/* Average AI Rating */}
+          <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
+            <div className="flex items-center gap-2 text-zinc-500 text-[12px] uppercase tracking-wider mb-2">
+              <TrendingUp className="h-4 w-4" />
+              AI Average
+            </div>
+            <div className={`text-2xl font-semibold ${summary?.avgAiRating ? "text-zinc-100" : "text-zinc-500"}`}>
+              {summary?.avgAiRating != null ? `${summary.avgAiRating}/5` : "—"}
+            </div>
+            <div className="text-[12px] text-zinc-500 mt-1">
+              AI-assessed focus
+            </div>
+          </div>
+
+          {/* Period Selector */}
+          <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
+            <div className="flex items-center gap-2 text-zinc-500 text-[12px] uppercase tracking-wider mb-2">
+              <Filter className="h-4 w-4" />
+              Period
+            </div>
+            <select
+              value={period}
+              onChange={(e) => setPeriod(e.target.value as "week" | "month" | "all")}
+              className="w-full px-3 py-1.5 bg-zinc-900 border border-zinc-700 rounded-md text-[13px] focus:outline-none focus:border-blue-500"
+            >
+              <option value="week">Last 7 Days</option>
+              <option value="month">Last Month</option>
+              <option value="all">All Time</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Weekly Breakdown */}
+      {summary?.weeklyBreakdown && summary.weeklyBreakdown.length > 0 && (
+        <div className="px-6 py-4 border-b border-zinc-800">
+          <h3 className="text-sm font-medium text-zinc-400 mb-3">Weekly Trends</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {summary.weeklyBreakdown.slice(0, 8).map((week) => (
+              <div
+                key={week.weekStart}
+                className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-3"
+              >
+                <div className="text-[11px] text-zinc-500 mb-1">
+                  Week of {formatDate(week.weekStart)}
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className={`px-2 py-0.5 rounded text-[12px] ${getRatingColor(week.avgUserRating)}`}>
+                    User: {week.avgUserRating?.toFixed(1) ?? "—"}
+                  </div>
+                  <div className={`px-2 py-0.5 rounded text-[12px] ${getRatingColor(week.avgAiRating)}`}>
+                    AI: {week.avgAiRating?.toFixed(1) ?? "—"}
+                  </div>
+                </div>
+                <div className="text-[10px] text-zinc-600 mt-1">
+                  {week.entryCount} {week.entryCount === 1 ? "entry" : "entries"}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Daily Entries */}
+      <div className="p-6">
+        <h3 className="text-sm font-medium text-zinc-400 mb-3">Daily Focus Log</h3>
+        {entries.length === 0 ? (
+          <div className="text-center py-12 text-zinc-500">
+            <Focus className="h-12 w-12 mx-auto mb-4 opacity-20" />
+            <p>No focus entries yet</p>
+            <p className="text-[12px] mt-2">Use <code className="bg-zinc-800 px-1.5 py-0.5 rounded">tcli focus --user 4</code> to record ratings</p>
+          </div>
+        ) : (
+          <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 overflow-hidden">
+            <table className="w-full">
+              <thead>
+                <tr className="text-[11px] text-zinc-500 uppercase tracking-wider border-b border-zinc-800">
+                  <th className="text-left px-4 py-2">Date</th>
+                  <th className="text-center px-4 py-2">User</th>
+                  <th className="text-center px-4 py-2">AI</th>
+                  <th className="text-left px-4 py-2">Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {entries.map((entry) => (
+                  <tr
+                    key={entry.date}
+                    className="border-t border-zinc-800/50 hover:bg-zinc-800/30"
+                  >
+                    <td className="px-4 py-2 text-[13px] text-zinc-400">
+                      {formatDate(entry.date)}
+                    </td>
+                    <td className="px-4 py-2 text-center">
+                      {entry.userRating !== null ? (
+                        <span className={`px-2 py-0.5 rounded text-[12px] ${getRatingColor(entry.userRating)}`}>
+                          {entry.userRating}/5
+                        </span>
+                      ) : (
+                        <span className="text-zinc-600">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2 text-center">
+                      {entry.aiRating !== null ? (
+                        <span className={`px-2 py-0.5 rounded text-[12px] ${getRatingColor(entry.aiRating)}`}>
+                          {entry.aiRating}/5
+                        </span>
+                      ) : (
+                        <span className="text-zinc-600">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2 text-[13px] text-zinc-400 max-w-md">
+                      {entry.userNotes || entry.aiNotes || "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// Timecard Tab Content
+// ============================================================================
+
+function TimecardContent() {
   const [clientFilter, setClientFilter] = useState<string>("all");
   const [monthFilter, setMonthFilter] = useState<string>("all");
   const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set());
@@ -58,7 +261,7 @@ export default function TimecardPage() {
   // Build org display names and colors from database
   const orgDisplayNames = useMemo(() => {
     const names: Record<string, string> = {};
-    orgsQuery.data?.forEach(org => {
+    orgsQuery.data?.organizations?.forEach(org => {
       names[org.slug] = org.name;
     });
     return names;
@@ -66,7 +269,7 @@ export default function TimecardPage() {
 
   const orgColors = useMemo(() => {
     const colors: Record<string, string> = {};
-    orgsQuery.data?.forEach((org, i) => {
+    orgsQuery.data?.organizations?.forEach((org, i) => {
       colors[org.slug] = CLIENT_COLOR_PALETTE[i % CLIENT_COLOR_PALETTE.length];
     });
     return colors;
@@ -149,7 +352,7 @@ export default function TimecardPage() {
 
   if (summaryQuery.isLoading || listQuery.isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="flex items-center justify-center py-12">
         <Loader2 className="h-8 w-8 animate-spin text-zinc-500" />
       </div>
     );
@@ -157,29 +360,12 @@ export default function TimecardPage() {
 
   if (summaryQuery.isError || listQuery.isError) {
     return (
-      <div className="min-h-screen p-6">
-        <div className="text-red-400">Could not load timecard data</div>
-      </div>
+      <div className="p-6 text-red-400">Could not load timecard data</div>
     );
   }
 
   return (
-    <div className="min-h-screen">
-      {/* Header */}
-      <div className="border-b border-zinc-800 bg-zinc-950/50 px-6 py-5">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
-              <Clock className="h-6 w-6 text-blue-400" />
-              Timecard
-            </h1>
-            <p className="text-[13px] text-zinc-500 mt-1">
-              {summary?.entryCount || 0} entries · {formatHours(summary?.totalHours || 0)} hours total
-            </p>
-          </div>
-        </div>
-      </div>
-
+    <div>
       {/* Summary Cards */}
       <div className="px-6 py-4 border-b border-zinc-800">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -361,6 +547,76 @@ export default function TimecardPage() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// Main Page Component
+// ============================================================================
+
+export default function TimecardPage() {
+  const [activeTab, setActiveTab] = useState<"timecard" | "focus">("timecard");
+
+  // Fetch summary for header stats
+  const summaryQuery = trpc.timecard.summary.useQuery();
+  const focusSummaryQuery = trpc.focus.summary.useQuery({ period: "month" });
+
+  return (
+    <div className="min-h-screen">
+      {/* Header */}
+      <div className="border-b border-zinc-800 bg-zinc-950/50 px-6 py-5">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
+              <Clock className="h-6 w-6 text-blue-400" />
+              {activeTab === "timecard" ? "Timecard" : "Focus Tracker"}
+            </h1>
+            <p className="text-[13px] text-zinc-500 mt-1">
+              {activeTab === "timecard" ? (
+                <>
+                  {summaryQuery.data?.entryCount || 0} entries · {formatHours(summaryQuery.data?.totalHours || 0)} hours total
+                </>
+              ) : (
+                <>
+                  {focusSummaryQuery.data?.entryCount || 0} entries · Avg focus: {focusSummaryQuery.data?.avgUserRating?.toFixed(1) || "—"}/5
+                </>
+              )}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Tab Navigation */}
+      <div className="border-b border-zinc-800 px-6">
+        <div className="flex gap-1">
+          <button
+            onClick={() => setActiveTab("timecard")}
+            className={`px-4 py-3 text-[13px] font-medium border-b-2 transition-colors ${
+              activeTab === "timecard"
+                ? "border-blue-500 text-blue-400"
+                : "border-transparent text-zinc-500 hover:text-zinc-300"
+            }`}
+          >
+            <Clock className="h-4 w-4 inline-block mr-2" />
+            Timecard
+          </button>
+          <button
+            onClick={() => setActiveTab("focus")}
+            className={`px-4 py-3 text-[13px] font-medium border-b-2 transition-colors ${
+              activeTab === "focus"
+                ? "border-blue-500 text-blue-400"
+                : "border-transparent text-zinc-500 hover:text-zinc-300"
+            }`}
+          >
+            <Focus className="h-4 w-4 inline-block mr-2" />
+            Focus Tracker
+          </button>
+        </div>
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === "timecard" ? <TimecardContent /> : <FocusTracker />}
     </div>
   );
 }

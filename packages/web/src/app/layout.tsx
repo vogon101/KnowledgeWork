@@ -13,6 +13,7 @@ import { AIPromptProvider } from "@/components/ai-prompt-dialog";
 import { GlobalAddTask } from "@/components/global-add-task";
 import { ToastProvider } from "@/components/toast";
 import { TRPCProvider } from "@/components/trpc-provider";
+import { TaskModalProvider } from "@/components/task-modal-context";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -46,16 +47,18 @@ export default function RootLayout({
               <QuickNotesProvider>
                 <TerminalProvider>
                   <AIPromptProvider>
-                    <CommandPalette />
-                    <GlobalFileSearch />
-                    <AIContentNotifier />
-                    <Toaster position="bottom-right" />
-                    <Sidebar />
-                    <main className="ml-52 bg-zinc-900">
-                      {children}
-                    </main>
-                    <GlobalAddTask />
-                    <QuickNotes />
+                    <TaskModalProvider>
+                      <CommandPalette />
+                      <GlobalFileSearch />
+                      <AIContentNotifier />
+                      <Toaster position="bottom-right" />
+                      <Sidebar />
+                      <main className="ml-52 bg-zinc-900">
+                        {children}
+                      </main>
+                      <GlobalAddTask />
+                      <QuickNotes />
+                    </TaskModalProvider>
                   </AIPromptProvider>
                 </TerminalProvider>
               </QuickNotesProvider>

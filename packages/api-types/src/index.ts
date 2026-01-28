@@ -196,6 +196,23 @@ export {
 } from './schemas/gmail.js';
 
 // =============================================================================
+// CALENDAR
+// =============================================================================
+
+export {
+  CalendarAttendeeSchema,
+  CalendarEventSchema,
+  CalendarListSchema,
+  CalendarEventListResponseSchema,
+  CalendarStatusSchema,
+  type CalendarAttendee,
+  type CalendarEvent,
+  type CalendarList,
+  type CalendarEventListResponse,
+  type CalendarStatus,
+} from './schemas/calendar.js';
+
+// =============================================================================
 // API RESPONSES
 // =============================================================================
 

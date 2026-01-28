@@ -18,7 +18,7 @@ model: opus
 permissionMode: default
 skills:
   - task-cli
-  - gmail
+  - google
   - dates
   - working-memory
   - docx
@@ -147,7 +147,7 @@ Maintain consistency throughout the document.
 
 ```bash
 # Search for relevant correspondence
-.claude/skills/gmail/scripts/gmail-cli.sh search "subject:topic" --limit 10
+.claude/skills/google/scripts/google-cli.sh gmail search "subject:topic" --limit 10
 ```
 
 ## Date Context

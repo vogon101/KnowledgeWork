@@ -481,6 +481,25 @@ tags:
 | `priority` | 1 (highest) to 5 (lowest) |
 | `org` | `acme-corp`, `example-org`, `consulting`, `personal` |
 
+#### Keeping Project READMEs Current
+
+**Project READMEs should be updated frequently** — not just during end-of-day reviews. Update them:
+
+- When you complete work on a project
+- When you learn something new from emails or meetings
+- When status changes (blocked, waiting, progressing)
+- When working on or asked about a project
+
+**Include email context**: The Current Status section should reflect what's happening in email correspondence. For example:
+- "🟢 **Budget approval** — John confirmed via email (28 Jan)"
+- "⏳ **Legal review** — awaiting response from Sarah (email sent 25 Jan)"
+- "🟡 **Timeline discussion** — James raised concerns in email, need to address"
+
+**When working on a project**, always:
+1. Check gmail for recent correspondence about the project
+2. Update the README with any new information
+3. Note who you're waiting on and when you last contacted them
+
 #### Recommended Structure
 
 ```markdown

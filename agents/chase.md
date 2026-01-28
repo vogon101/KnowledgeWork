@@ -16,7 +16,7 @@ model: opus
 permissionMode: default
 skills:
   - task-cli
-  - gmail
+  - google
   - dates
   - working-memory
   - docx
@@ -54,7 +54,7 @@ Look for entries mentioning waiting or follow-ups.
 ### 4. For Each Item Found
 Search gmail for last correspondence with the relevant person:
 ```bash
-.claude/skills/gmail/scripts/gmail-cli.sh search "from:X OR to:X" --limit 3
+.claude/skills/google/scripts/google-cli.sh gmail search "from:X OR to:X" --limit 3
 ```
 Calculate days since last contact.
 
@@ -100,8 +100,8 @@ Suggest creating a task using task-cli (tell user the command).
 
 ## Key Constraints
 
-1. **No task modifications**: Suggest commands for user to run, don't modify tasks yourself
-2. **No email sending**: Draft only
+1. **PROPOSE changes, don't make them**: Never create/update/complete tasks without asking. Suggest commands for user to run, or use `AskUserQuestion` to confirm before making changes.
+2. **No email sending**: Draft only, present for user to send
 3. **Context first**: Always gather full context before presenting findings
 4. **Be specific**: Include exact dates, days elapsed, task IDs
 
@@ -116,13 +116,13 @@ Always get current date context:
 
 ```bash
 # Find contact email
-.claude/skills/gmail/scripts/gmail-cli.sh contacts "Name"
+.claude/skills/google/scripts/google-cli.sh contacts search "Name"
 
 # Search emails
-.claude/skills/gmail/scripts/gmail-cli.sh search "from:email OR to:email" --limit 5
+.claude/skills/google/scripts/google-cli.sh gmail search "from:email OR to:email" --limit 5
 
 # Get email content
-.claude/skills/gmail/scripts/gmail-cli.sh get MESSAGE_ID
+.claude/skills/google/scripts/google-cli.sh gmail get MESSAGE_ID
 ```
 
 ## Report Back to Working Memory

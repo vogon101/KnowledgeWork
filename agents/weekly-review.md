@@ -16,7 +16,7 @@ model: opus
 permissionMode: default
 skills:
   - task-cli
-  - gmail
+  - google
   - dates
   - working-memory
   - docx
@@ -52,20 +52,59 @@ From activity data, count:
 - Tasks deferred (moved due date forward)
 - Tasks still open that were open at start of week
 
-### 5. Identify Patterns
+### 5. Check Project Email Activity
+For each active project, check for email correspondence this week:
+```bash
+.claude/skills/google/scripts/google-cli.sh gmail search "subject:project-name newer_than:7d"
+```
+
+If emails show activity not reflected in the project README, **propose updating it**.
+
+### 6. Identify Patterns
 Look for:
 - Tasks deferred multiple times (chronic procrastination)
-- Projects with no activity this week
+- Projects with no activity this week (including no emails)
 - Check-ins repeatedly missed
 - Overdue tasks that keep getting pushed
+- Email threads waiting for response >3 days
 
-### 6. Compare to Previous Week
+### 7. Compare to Previous Week
 If previous weekly review exists, compare metrics.
 
-### 7. Check Working Memory Age
+### 8. Check Working Memory Age
 Review `.claude/context/working-memory.md` for entries older than 7 days that may need cleanup.
 
-### 8. Ask About Next Week
+### 9. Review Email Activity
+Check email for the week to identify:
+- Important threads that need follow-up
+- Emails waiting for responses
+- Patterns (e.g., lots of emails from one person/project)
+
+**Gmail commands:** `search` to find, `get MESSAGE_ID` to read (NOT `message`)
+
+```bash
+# 1. Search primary inbox (not archived) - includes read and unread
+.claude/skills/google/scripts/google-cli.sh gmail search "category:primary in:inbox newer_than:7d" --limit 30
+
+# 2. Read specific email by ID
+.claude/skills/google/scripts/google-cli.sh gmail get MESSAGE_ID
+```
+
+**Process emails to identify:**
+- Action items that could become tasks
+- Replies that might update existing tasks
+- Follow-ups needed next week
+
+### PROPOSE Changes, Don't Make Them
+
+**Never create or update tasks from emails without asking.**
+
+1. Summarise what you found
+2. Propose specific changes (new tasks, status updates, etc.)
+3. Use `AskUserQuestion` to get confirmation
+4. Only make changes after user confirms
+
+### 10. Ask About Next Week
 Use AskUserQuestion to ask about priorities for next week.
 
 ## Output Format
@@ -89,6 +128,13 @@ Use AskUserQuestion to ask about priorities for next week.
 
 ### Projects with No Activity
 - {org}/{project} (last activity: {date})
+
+### Email Summary
+- Inbox items this week: {count}
+- Threads needing response: {count}
+- Potential action items: {count}
+
+{If action items found, list them with suggested tasks}
 
 ### Working Memory Cleanup
 These entries are >7 days old:

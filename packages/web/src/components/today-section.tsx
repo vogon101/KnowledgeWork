@@ -1,11 +1,10 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, Clock, Bell, Users, ChevronRight } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { formatDistanceToNow } from "date-fns";
-import { TaskDetailModal } from "./task-detail-popover";
+import { useTaskModal } from "./task-modal-context";
 import { DEFAULT_OWNER_NAME } from "./task-list/config";
 
 function PriorityBadge({ priority }: { priority: number | null | undefined }) {
@@ -41,12 +40,11 @@ interface TaskItem {
 interface TaskRowProps {
   task: TaskItem;
   variant: "overdue" | "today" | "checkin" | "others";
-  onUpdate: () => void;
   showOwner?: boolean;
 }
 
-function TaskRow({ task, variant, onUpdate, showOwner }: TaskRowProps) {
-  const [modalOpen, setModalOpen] = useState(false);
+function TaskRow({ task, variant, showOwner }: TaskRowProps) {
+  const { openTaskModal } = useTaskModal();
 
   const bgHover = {
     overdue: "hover:bg-red-500/10",
@@ -67,47 +65,38 @@ function TaskRow({ task, variant, onUpdate, showOwner }: TaskRowProps) {
   const shouldShowOwner = showOwner || variant === "checkin";
 
   return (
-    <>
-      <button
-        onClick={() => setModalOpen(true)}
-        className={`w-full flex items-center justify-between py-1.5 px-2 -mx-2 rounded ${bgHover} transition-colors group text-left`}
-      >
-        <div className="flex items-center gap-2 min-w-0 flex-1">
-          <span className="text-[12px] text-zinc-300 group-hover:text-zinc-100 truncate">
-            {shouldShowOwner && task.ownerName && (
-              <><span className="text-zinc-400 font-medium">{task.ownerName}</span><span className="text-zinc-500 mx-1.5">|</span></>
-            )}
-            {task.title}
+    <button
+      onClick={() => openTaskModal(task.id, task.displayId)}
+      className={`w-full flex items-center justify-between py-1.5 px-2 -mx-2 rounded ${bgHover} transition-colors group text-left`}
+    >
+      <div className="flex items-center gap-2 min-w-0 flex-1">
+        <span className="text-[12px] text-zinc-300 group-hover:text-zinc-100 truncate">
+          {shouldShowOwner && task.ownerName && (
+            <><span className="text-zinc-400 font-medium">{task.ownerName}</span><span className="text-zinc-500 mx-1.5">|</span></>
+          )}
+          {task.title}
+        </span>
+      </div>
+      <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+        {variant === "overdue" && task.dueDate && (
+          <span className={`text-[10px] ${timeColor}`}>
+            {formatDistanceToNow(new Date(task.dueDate), { addSuffix: true })}
           </span>
-        </div>
-        <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-          {variant === "overdue" && task.dueDate && (
-            <span className={`text-[10px] ${timeColor}`}>
-              {formatDistanceToNow(new Date(task.dueDate), { addSuffix: true })}
-            </span>
-          )}
-          {task.projectName && (
-            <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded truncate max-w-[180px] ${
-              task.projectOrgColor === "indigo" ? "bg-indigo-500/20 text-indigo-300" :
-              task.projectOrgColor === "teal" ? "bg-teal-500/20 text-teal-300" :
-              task.projectOrgColor === "rose" ? "bg-rose-500/20 text-rose-300" :
-              task.projectOrgColor === "orange" ? "bg-orange-500/20 text-orange-300" :
-              "bg-zinc-700/50 text-zinc-300"
-            }`}>
-              {task.projectOrgShortName ? `${task.projectOrgShortName}: ` : ""}{task.projectName}
-            </span>
-          )}
-          <PriorityBadge priority={task.priority} />
-        </div>
-      </button>
-      <TaskDetailModal
-        taskId={task.id}
-        displayId={task.displayId}
-        open={modalOpen}
-        onOpenChange={setModalOpen}
-        onUpdate={onUpdate}
-      />
-    </>
+        )}
+        {task.projectName && (
+          <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded truncate max-w-[180px] ${
+            task.projectOrgColor === "indigo" ? "bg-indigo-500/20 text-indigo-300" :
+            task.projectOrgColor === "teal" ? "bg-teal-500/20 text-teal-300" :
+            task.projectOrgColor === "rose" ? "bg-rose-500/20 text-rose-300" :
+            task.projectOrgColor === "orange" ? "bg-orange-500/20 text-orange-300" :
+            "bg-zinc-700/50 text-zinc-300"
+          }`}>
+            {task.projectOrgShortName ? `${task.projectOrgShortName}: ` : ""}{task.projectName}
+          </span>
+        )}
+        <PriorityBadge priority={task.priority} />
+      </div>
+    </button>
   );
 }
 
@@ -137,8 +126,6 @@ function SectionHeader({ icon: Icon, label, count, color, href }: SectionHeaderP
 }
 
 export function TodaySection() {
-  const utils = trpc.useUtils();
-
   const overdueQuery = trpc.query.overdue.useQuery({});
   const todayQuery = trpc.query.today.useQuery({});
   const checkinQuery = trpc.items.checkins.useQuery({ includeFuture: false });
@@ -162,13 +149,6 @@ export function TodaySection() {
     t.dueDate &&
     t.dueDate <= inSevenDays
   );
-
-  const handleUpdate = () => {
-    utils.query.overdue.invalidate();
-    utils.query.today.invalidate();
-    utils.items.checkins.invalidate();
-    utils.items.list.invalidate();
-  };
 
   // Filter out overdue tasks from today's list to avoid duplicates
   const todayOnlyTasks = todayTasks.filter(
@@ -207,7 +187,6 @@ export function TodaySection() {
                 key={task.id}
                 task={task}
                 variant="overdue"
-                onUpdate={handleUpdate}
               />
             ))}
           </div>
@@ -230,7 +209,6 @@ export function TodaySection() {
                 key={task.id}
                 task={task}
                 variant="today"
-                onUpdate={handleUpdate}
               />
             ))}
           </div>
@@ -253,7 +231,6 @@ export function TodaySection() {
                 key={`${task.id}-${task.checkinId}`}
                 task={task}
                 variant="checkin"
-                onUpdate={handleUpdate}
               />
             ))}
           </div>
@@ -277,7 +254,6 @@ export function TodaySection() {
                 task={task}
                 variant="others"
                 showOwner
-                onUpdate={handleUpdate}
               />
             ))}
           </div>

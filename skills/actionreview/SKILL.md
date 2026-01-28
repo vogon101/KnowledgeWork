@@ -1,14 +1,14 @@
 ---
 name: actionreview
-description: Audit pending actions, commitments, and quality issues across tasks and meetings.
+description: Audit pending actions, commitments, and quality issues across tasks, meetings, and email.
 user-invocable: true
 argument-hint: "[scope] (e.g. 'acme-corp', '2 weeks')"
-allowed-tools: Read, Grep, Glob, Bash(.claude/skills/task-cli/scripts/task-cli.sh:*), Bash(.claude/skills/dates/scripts/date_context.sh:*), Bash(.claude/skills/projects/scripts/*:*)
+allowed-tools: Read, Edit, Grep, Glob, AskUserQuestion, Bash(.claude/skills/task-cli/scripts/task-cli.sh:*), Bash(.claude/skills/dates/scripts/date_context.sh:*), Bash(.claude/skills/projects/scripts/*:*), Bash(.claude/skills/google/scripts/google-cli.sh:*)
 ---
 
 # Action Review
 
-Review pending actions, commitments, and owed items across meetings, projects, and the task database.
+Review pending actions, commitments, and owed items across meetings, projects, email, and the task database.
 
 ## Parameters
 
@@ -85,7 +85,25 @@ For each active project, check `next-steps.md` for:
 - Pending items
 - Waiting-on items from others
 
-**D. Review personal routines.md**
+**D. Check Email for Action Items**
+
+**Gmail commands:** `search` to find, `get MESSAGE_ID` to read (NOT `message`)
+
+```bash
+# Primary inbox - recent emails that may contain actions
+.claude/skills/google/scripts/google-cli.sh gmail search "category:primary in:inbox newer_than:7d"
+
+# Emails from/to specific people related to open tasks
+.claude/skills/google/scripts/google-cli.sh gmail search "from:stakeholder newer_than:14d"
+```
+
+For each relevant email found:
+1. Check if there's already a task for the action item
+2. Check if an email provides an update on an existing task (e.g., someone responded)
+3. Note emails that suggest new action items
+4. Note emails waiting for response >3 days
+
+**E. Review personal routines.md**
 
 Check `personal/routines.md` for:
 - Recurring tasks
@@ -117,11 +135,31 @@ Output format:
 | Source | Owner | Action | Status |
 |--------|-------|--------|--------|
 
+## 📧 Email Action Items
+
+### New Actions from Email
+| From | Subject | Suggested Action | Related Task |
+|------|---------|-----------------|--------------|
+| John | Budget review | Create task: "Review Q1 budget" | (none) |
+| Sarah | Timeline confirmed | Update T-1234: unblock | T-1234 |
+
+### Waiting for Response (>3 days)
+| To | Subject | Sent | Days Waiting |
+|----|---------|------|-------------|
+| James | Meeting agenda | 25 Jan | 5 days |
+
+### Emails That Update Existing Tasks
+| Email | Task | Suggested Update |
+|-------|------|-----------------|
+| Sarah confirmed timeline | T-1234 | Mark complete or unblock |
+
 ## ⚠️ Potential Conflicts/Gaps
 
 - [Meeting actions without Task IDs - not synced to DB]
 - [Tasks without project assignment]
 - [Stale items >2 weeks old without activity]
+- [Emails with action items not tracked as tasks]
+- [Tasks waiting on email response with no follow-up]
 
 ## 📋 Task Database Summary
 
@@ -193,9 +231,33 @@ Output format:
 | path/to/meeting.md | Org name used as project: `acme-corp` |
 ```
 
-### 6. Offer Follow-ups
+### 6. Update Project READMEs
 
-After presenting the report, offer:
+For each project with activity (tasks, meetings, or emails), check the README:
+
+```bash
+# Check email activity for each active project
+.claude/skills/google/scripts/google-cli.sh gmail search "subject:project-name newer_than:14d"
+```
+
+Update Current Status with:
+- Task progress (completed, blocked, new)
+- Email context ("⏳ **Legal review** — awaiting response from Sarah, email sent 25 Jan")
+- Meeting outcomes
+- `**Last updated:** DD Month YYYY`
+
+**PROPOSE README changes** and ask user to confirm before editing.
+
+### 7. PROPOSE Changes, Then Confirm
+
+After presenting the report, use `AskUserQuestion` to propose actions. **Never make changes without asking.**
+
+**Propose from email findings:**
+- Create new tasks for email action items
+- Update existing tasks based on email responses
+- Flag emails needing follow-up
+
+**Propose from task/meeting findings:**
 1. Sync unsynced meetings to task database
 2. Update action statuses in meeting notes
 3. Chase items owed by others (draft message)
@@ -206,5 +268,18 @@ After presenting the report, offer:
 8. Update stale meeting statuses (scheduled → completed)
 9. Add missing frontmatter fields to meetings
 10. Fix invalid project references (show valid slugs, offer to correct)
+11. Update project READMEs with current status
 
-Use the Ask User Question tool to ask me about the issues/gaps you identify.
+**Present all proposed changes together**, grouped by type, using `AskUserQuestion` with `multiSelect: true` so user can pick which to apply.
+
+### 8. Update Working Memory
+
+After completing the review, update `.claude/context/working-memory.md` with:
+- Items still waiting on others (with dates)
+- Patterns discovered (chronic deferrals, stale projects)
+- Follow-ups needed
+
+**Format:**
+```
+[YYYY-MM-DD] [Action Review] {key finding or follow-up needed}
+```

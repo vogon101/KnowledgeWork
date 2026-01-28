@@ -1,4 +1,4 @@
 packages:
   - 'packages/*'
   - 'skills/task-cli'
-  - 'skills/gmail'
+  - 'skills/google'

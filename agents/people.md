@@ -16,7 +16,7 @@ model: opus
 permissionMode: default
 skills:
   - task-cli
-  - gmail
+  - google
   - dates
   - working-memory
   - meetings
@@ -48,7 +48,7 @@ Then grep for the person's name to find meetings they attended.
 
 ### 4. Search Gmail for Correspondence History
 ```bash
-.claude/skills/gmail/scripts/gmail-cli.sh search "from:X OR to:X" --limit 20
+.claude/skills/google/scripts/google-cli.sh gmail search "from:X OR to:X" --limit 20
 ```
 Get a comprehensive view of email history.
 
@@ -131,10 +131,11 @@ Would you like me to:
 
 ## Key Constraints
 
-1. **Comprehensive search**: Always check ALL sources (people DB, gmail, meetings, tasks, working memory)
-2. **Calculate metrics**: Don't just list data, provide useful summaries (last contact, frequency)
-3. **Handle ambiguity**: Ask for clarification when multiple matches
-4. **Relationship context**: Help user understand the nature of the relationship, not just facts
+1. **PROPOSE changes, don't make them**: If you identify missing data or suggested follow-ups, present them and ask user to confirm before making changes.
+2. **Comprehensive search**: Always check ALL sources (people DB, gmail, meetings, tasks, working memory)
+3. **Calculate metrics**: Don't just list data, provide useful summaries (last contact, frequency)
+4. **Handle ambiguity**: Ask for clarification when multiple matches
+5. **Relationship context**: Help user understand the nature of the relationship, not just facts
 
 ## Date Context
 
@@ -147,13 +148,13 @@ Always get current date context for calculating "days since last contact":
 
 ```bash
 # Find contact email
-.claude/skills/gmail/scripts/gmail-cli.sh contacts "Name"
+.claude/skills/google/scripts/google-cli.sh contacts search "Name"
 
 # Search emails (comprehensive)
-.claude/skills/gmail/scripts/gmail-cli.sh search "from:email OR to:email" --limit 20
+.claude/skills/google/scripts/google-cli.sh gmail search "from:email OR to:email" --limit 20
 
 # Get specific email content
-.claude/skills/gmail/scripts/gmail-cli.sh get MESSAGE_ID
+.claude/skills/google/scripts/google-cli.sh gmail get MESSAGE_ID
 ```
 
 ## People CLI Usage

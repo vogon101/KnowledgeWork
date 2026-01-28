@@ -16,10 +16,14 @@ Simple date helper to avoid mental date calculations. Use at session start and w
 
 Output:
 ```
+Current time: 14:32 GMT
+
 Today: Monday 12 January 2026
 Yesterday: Sunday 11 January 2026
 Tomorrow: Tuesday 13 January 2026
 ```
+
+**Late night warning**: If run between midnight and 3am, shows a warning that "today" might mean yesterday from the user's perspective.
 
 ## Commands
 

@@ -8,19 +8,43 @@ allowed-tools: Bash(.claude/skills/gmail/scripts/gmail-cli.sh:*)
 
 Read-only access to Gmail for searching, reading, and processing emails.
 
-**Service:** Task Service at `http://localhost:3004`
 **Script:** `.claude/skills/gmail/scripts/gmail-cli.sh`
+
+## Commands (IMPORTANT)
+
+There are only 4 main commands you need:
+
+| Command | Purpose | Example |
+|---------|---------|---------|
+| `search` | Find emails | `gmail-cli.sh search "category:primary in:inbox newer_than:2d"` |
+| `get` | Read one email by ID | `gmail-cli.sh get MESSAGE_ID` |
+| `thread` | Read full conversation | `gmail-cli.sh thread THREAD_ID` |
+| `contacts` | Find email addresses | `gmail-cli.sh contacts "John"` |
+
+**Common mistake:** There is NO `message` command. Use `get` to read an email.
+
+### Typical Workflow
+
+```bash
+# 1. Search for emails
+.claude/skills/gmail/scripts/gmail-cli.sh search "category:primary in:inbox newer_than:2d"
+
+# 2. Get the MESSAGE_ID from search results, then read the email
+.claude/skills/gmail/scripts/gmail-cli.sh get 19c045fbdcd5119d
+```
 
 ## Critical Rules
 
-### NEVER Auto-Create Tasks from Emails
+### PROPOSE Changes, Don't Make Them
 
 **This is the most important rule.** When processing emails:
 
-1. **NEVER** create tasks directly from email content without asking
+1. **NEVER** create, update, or complete tasks based on emails without asking
 2. **ALWAYS** present potential actions to the user for confirmation
-3. **ALWAYS** use `AskUserQuestion` before creating any tasks
-4. **SUMMARISE** emails and suggest potential actions, don't execute them
+3. **ALWAYS** use `AskUserQuestion` before making ANY task changes
+4. **SUMMARISE** emails and **PROPOSE** actions, don't execute them
+
+**The workflow is:** Read emails → Summarise findings → Propose changes → Wait for user confirmation → Only then make changes
 
 **Why:** Email contains requests, FYIs, spam, and context that the user has already seen. The user decides what becomes a task, not the AI.
 
@@ -70,7 +94,8 @@ alias gmail='.claude/skills/gmail/scripts/gmail-cli.sh'
 gmail status
 
 # Primary inbox (DEFAULT - use this for inbox reviews)
-gmail search "category:primary is:unread"
+# Includes read and unread, excludes archived
+gmail search "category:primary in:inbox newer_than:2d"
 
 # Search specific emails
 gmail search "from:john subject:budget"
@@ -90,12 +115,13 @@ gmail contacts-list                # List recent contacts
 
 ## When to Use Primary Category
 
-Use `category:primary` **only for general inbox checks** — it filters out newsletters, promotions, and social notifications.
+Use `category:primary in:inbox` **for general inbox checks** — it filters out newsletters, promotions, social notifications, AND archived emails.
 
 ```bash
-# General inbox review - USE category:primary
-gmail search "category:primary is:unread"
-gmail search "category:primary newer_than:1d"
+# General inbox review - USE category:primary in:inbox
+# This includes both read and unread emails still in inbox
+gmail search "category:primary in:inbox newer_than:2d"
+gmail search "category:primary in:inbox newer_than:1d"
 
 # Specific searches - DON'T use category:primary
 gmail search "from:john@example.com"           # Find emails from specific person
@@ -290,7 +316,8 @@ gmail-cli inbox --limit 10
 When user asks to check inbox or review emails:
 
 ```bash
-gmail search "category:primary is:unread"
+# Primary inbox - includes read and unread, excludes archived
+gmail search "category:primary in:inbox newer_than:2d"
 ```
 
 **Then:**
@@ -299,7 +326,7 @@ gmail search "category:primary is:unread"
 3. Ask which ones need action
 4. Only create tasks for confirmed items
 
-**Note:** Always use `category:primary` to filter out newsletters and promotions.
+**Note:** Use `category:primary in:inbox` to filter out newsletters/promotions AND archived emails. This includes read emails that may still need action.
 
 ### 2. Search for Specific Emails
 
@@ -410,29 +437,56 @@ When presenting email summaries to users:
 Would you like me to create tasks for any of these?
 ```
 
+## When to Check Email
+
+### Proactively Check Email When:
+
+1. **Working on a project** — search for recent correspondence about that project
+2. **Asked about a topic** — check if there's relevant email context
+3. **Updating a project README** — include email status in Current Status section
+4. **Before meetings** — check recent correspondence with attendees
+5. **Daily reviews** — /resumeday, /summary, /end-day all include email checking
+
+```bash
+# When working on or asked about a specific project/topic
+.claude/skills/gmail/scripts/gmail-cli.sh search "subject:project-name OR from:stakeholder newer_than:14d"
+
+# When updating a project README - find who you're waiting on
+.claude/skills/gmail/scripts/gmail-cli.sh search "to:me subject:project newer_than:30d"
+```
+
+### Update Project READMEs with Email Context
+
+When you find relevant emails, update the project README's Current Status:
+- "🟢 **Budget approval** — John confirmed via email (28 Jan)"
+- "⏳ **Legal review** — awaiting response from Sarah (email sent 25 Jan)"
+- "🟡 **Timeline concerns** — James raised issues in email, need to address"
+
 ## Integration with Other Skills
 
-Gmail integrates with daily workflows but is **optional** — only check when the user requests or context suggests it's needed.
+Gmail is a **standard part** of daily review workflows — /resumeday, /summary, and /end-day all include email checking.
 
 ### With /resumeday (Morning)
 
-If user asks to check email during morning setup:
+Email review is part of the morning check-in:
 ```bash
-gmail search "category:primary is:unread"
+# Primary inbox - includes read and unread, excludes archived
+gmail search "category:primary in:inbox newer_than:2d"
 ```
-Summarise briefly, note anything needing action, but **don't create tasks without asking**.
+Summarise briefly, identify urgent items, but **don't create tasks without asking**.
 
 ### With /summary or /end-day (Afternoon/Evening)
 
-Email is generally NOT part of the standard summary/end-day flow unless:
-- User explicitly asks to review email
-- User mentions expecting an important reply
-- There's an open task about "waiting for X's email"
-
-If checking for expected replies:
+Email review is part of the standard flow:
 ```bash
-gmail search "from:specificperson newer_than:2d"
+# Primary inbox - includes read and unread, excludes archived
+gmail search "category:primary in:inbox newer_than:2d"
 ```
+
+**Process emails to:**
+- Identify new action items → use `AskUserQuestion` before creating tasks
+- Find replies that update existing tasks → suggest marking complete/unblocked
+- Check for expected replies on waiting tasks
 
 ### With Task System
 
@@ -447,23 +501,13 @@ Example task creation after user confirms:
 .claude/skills/task-cli/scripts/task-cli.sh create task "Reply to John re: budget review" --owner Alice --due 2026-01-28
 ```
 
-### When NOT to Use Gmail
+### Important Guardrails
 
-- Don't proactively check email without being asked
-- Don't include email in routine summaries unless requested
-- Don't mark emails read or archive without explicit permission
-- Don't assume unread emails need tasks — many are FYI
-
-### When to Suggest Email Check
-
-It's appropriate to **ask** (not assume) about email when:
-- User mentions waiting for a response
-- There's a task about following up with someone
-- User asks "anything I'm missing?" during summary
-- Morning check-in and user seems to want comprehensive status
-
-Example prompt:
-> "Would you like me to check your primary inbox for anything needing attention?"
+Even though email is part of standard workflows:
+- **Never auto-create tasks** — always use `AskUserQuestion` first
+- **Never mark emails read** or archive without explicit permission
+- **Many emails are FYI** — don't assume every email needs a task
+- **Link to existing tasks** — if an email is about an existing task, update that task rather than creating a new one
 
 ## Setup
 

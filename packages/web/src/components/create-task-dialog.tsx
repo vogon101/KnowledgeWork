@@ -204,7 +204,7 @@ export function CreateTaskDialog({
                 setShowTokenWarning(false);
               }}
               onBlur={handleTitleBlur}
-              placeholder="What needs to be done? (try '@person', '#project', 'p1', 'tomorrow')"
+              placeholder="What needs to be done? (try '@me', '#project', 'p1', '!tomorrow')"
               autoFocus
               people={people}
               projects={projects}
@@ -212,6 +212,7 @@ export function CreateTaskDialog({
               onProjectSelect={(projectId) => setProjectId(projectId ? String(projectId) : "_none")}
               onPrioritySelect={(p) => setPriority(p ? String(p) : "_none")}
               onDateSelect={(date) => setDueDate(date || "")}
+              defaultUserId={defaultOwnerId}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
                   handleCreate();
@@ -219,7 +220,7 @@ export function CreateTaskDialog({
               }}
             />
             <p className="text-[9px] text-zinc-600 mt-0.5">
-              @person, #project, p1-p4 for priority, tomorrow/monday for dates
+              @me/@none, #project, p1-p4, !tomorrow/!monday/!jan15 for dates
             </p>
           </div>
 

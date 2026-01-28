@@ -4,57 +4,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Loader2 } from "lucide-react";
-import { TaskDetailContent } from "@/components/task-detail-popover";
+import { TaskDetailContent, transformTaskData } from "@/components/task-detail-popover";
 import { trpc } from "@/lib/trpc";
-
-// Task detail type (camelCase) - matches TaskDetailContent component expectations
-interface TaskDetail {
-  id: number;
-  displayId: string;
-  title: string;
-  description: string | null;
-  status: string;
-  priority: number | null;
-  dueDate: string | null;
-  checkinBy: string | null;
-  checkinId: number | null;
-  targetPeriod: string | null;
-  ownerId: number | null;
-  ownerName: string | null;
-  projectId: number | null;
-  projectSlug: string | null;
-  projectName: string | null;
-  projectOrg: string | null;
-  projectFullPath: string | null;
-  workstreamId: number | null;
-  workstreamName: string | null;
-  sourceMeetingId: number | null;
-  sourceMeetingTitle: string | null;
-  sourceMeetingPath?: string | null;
-  dueMeetingId: number | null;
-  dueMeetingTitle: string | null;
-  parentId: number | null;
-  parentTask?: { id: number; displayId: string; title: string } | null;
-  // Blocking relationships via ItemLink
-  blockers?: Array<{ id: number; displayId: string; title: string; status: string; linkId?: number }>;
-  blocking?: Array<{ id: number; displayId: string; title: string; status: string; linkId?: number }>;
-  subtaskCount: number;
-  subtasksComplete: number;
-  createdAt: string;
-  updatedAt: string;
-  completedAt: string | null;
-  updates?: Array<{
-    id: number;
-    taskId: number;
-    note: string;
-    updateType: string;
-    oldStatus: string | null;
-    newStatus: string | null;
-    createdAt: string;
-  }>;
-  subtasks?: TaskDetail[];
-  relatedTasks?: TaskDetail[];
-}
 
 export default function TaskDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
@@ -83,53 +34,8 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
     taskQuery.refetch();
   };
 
-  // Transform tRPC response to TaskDetail (camelCase to camelCase, just fill in nulls)
-  const task: TaskDetail | null = taskQuery.data ? {
-    id: taskQuery.data.id,
-    displayId: taskQuery.data.displayId,
-    title: taskQuery.data.title,
-    description: taskQuery.data.description ?? null,
-    status: taskQuery.data.status,
-    priority: taskQuery.data.priority ?? null,
-    dueDate: taskQuery.data.dueDate ?? null,
-    checkinBy: taskQuery.data.checkinBy ?? null,
-    checkinId: taskQuery.data.checkinId ?? null,
-    targetPeriod: taskQuery.data.targetPeriod ?? null,
-    ownerId: taskQuery.data.ownerId ?? null,
-    ownerName: taskQuery.data.ownerName ?? null,
-    projectId: taskQuery.data.projectId ?? null,
-    projectSlug: taskQuery.data.projectSlug ?? null,
-    projectName: taskQuery.data.projectName ?? null,
-    projectOrg: taskQuery.data.projectOrg ?? null,
-    projectFullPath: taskQuery.data.projectFullPath ?? null,
-    workstreamId: null,
-    workstreamName: null,
-    sourceMeetingId: taskQuery.data.sourceMeetingId ?? null,
-    sourceMeetingTitle: taskQuery.data.sourceMeetingTitle ?? null,
-    sourceMeetingPath: taskQuery.data.sourceMeetingPath ?? null,
-    dueMeetingId: null,
-    dueMeetingTitle: null,
-    parentId: taskQuery.data.parentId ?? null,
-    parentTask: null,
-    blockers: taskQuery.data.blockers ?? [],
-    blocking: taskQuery.data.blocking ?? [],
-    subtaskCount: taskQuery.data.subtaskCount ?? 0,
-    subtasksComplete: taskQuery.data.subtasksComplete ?? 0,
-    createdAt: taskQuery.data.createdAt,
-    updatedAt: taskQuery.data.updatedAt,
-    completedAt: taskQuery.data.completedAt ?? null,
-    updates: taskQuery.data.updates?.map(u => ({
-      id: u.id,
-      taskId: u.task_id,
-      note: u.note,
-      updateType: u.update_type,
-      oldStatus: u.old_status,
-      newStatus: u.new_status,
-      createdAt: u.created_at,
-    })),
-    subtasks: undefined,
-    relatedTasks: undefined,
-  } : null;
+  // Transform tRPC response to TaskDetail using shared function
+  const task = taskQuery.data ? transformTaskData(taskQuery.data) : null;
 
   const loading = taskId === null || taskQuery.isLoading;
   const error = parseError || (taskQuery.isError ? taskQuery.error.message : null);
@@ -190,6 +96,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
           task={task}
           onClose={handleClose}
           onUpdate={handleUpdate}
+          onRefetchTask={handleUpdate}
         />
       </div>
     </div>

@@ -2,7 +2,7 @@
 name: summary
 description: Daily summary of accomplishments, task status, and project updates.
 user-invocable: true
-allowed-tools: Read, Grep, Edit, Bash(.claude/skills/task-cli/scripts/task-cli.sh:*), Bash(.claude/skills/dates/scripts/date_context.sh:*)
+allowed-tools: Read, Grep, Edit, Bash(.claude/skills/task-cli/scripts/task-cli.sh:*), Bash(.claude/skills/dates/scripts/date_context.sh:*), Bash(.claude/skills/google/scripts/google-cli.sh:*)
 ---
 
 # Daily Summary
@@ -24,19 +24,75 @@ The activity feed is essential for understanding what was accomplished — it sh
 
 Check-ins are scheduled review points for tasks — they surface tasks that need attention even if not "due" today.
 
-## Email (Optional)
+## Email Review
 
-Only check email if user requests or there's a specific reason (e.g., task waiting on someone's reply):
+**Always** check emails as part of the daily summary.
+
+### Gmail Commands
+
+| Command | Purpose |
+|---------|---------|
+| `search "query"` | Find emails |
+| `get MESSAGE_ID` | Read one email (NOT `message`) |
 
 ```bash
-.claude/skills/gmail/scripts/gmail-cli.sh search "category:primary is:unread"
+# 1. Search primary inbox (not archived) - includes read and unread
+.claude/skills/google/scripts/google-cli.sh gmail search "category:primary in:inbox newer_than:2d"
+
+# 2. Read specific email by ID from search results
+.claude/skills/google/scripts/google-cli.sh gmail get MESSAGE_ID
 ```
 
-**Important**: Never auto-create tasks from emails. If emails need action, present them and use `AskUserQuestion` to confirm before creating tasks. See the gmail skill for full guidance.
+**Process emails to identify:**
+- New action items that could become tasks
+- Replies that might update existing tasks
+- Emails related to current projects/tasks
+
+### PROPOSE Changes, Don't Make Them
+
+**Never create or update tasks from emails without asking.**
+
+1. Summarise what you found
+2. Propose specific changes (new tasks, status updates, etc.)
+3. Use `AskUserQuestion` to get confirmation
+4. Only make changes after user confirms
+
+**Example:**
+```
+Based on your emails, I'd suggest:
+
+1. **New task:** "Review budget for John" (due Fri)
+   → From John's email requesting Q1 budget review
+
+2. **Update T-1234:** Unblock and resume
+   → Sarah's reply confirms project is approved
+
+3. **FYI (no action):** HR holiday schedule
+
+Which of these would you like me to do?
+```
+
+**Link emails to existing tasks:** If an email relates to an existing task, propose updating that task rather than creating a new one.
+
+**Wait for confirmation before making any changes.**
 
 ## Project Status Updates
 
-For projects that had significant activity today, update their AI status summary in the README:
+For projects that had activity today (including email correspondence), update their README:
+
+**Check gmail for each active project:**
+```bash
+.claude/skills/google/scripts/google-cli.sh gmail search "subject:project-name newer_than:2d"
+```
+
+**Include email context in Current Status:**
+- "🟢 **Budget approval** — John confirmed via email (28 Jan)"
+- "⏳ **Legal review** — awaiting response from Sarah (email sent 25 Jan)"
+- "🟡 **Timeline concerns** — James raised issues in email, need to address"
+
+**PROPOSE README updates** and ask user to confirm before editing.
+
+Update the status summary in the README:
 
 ```markdown
 <!-- AI_STATUS_START -->

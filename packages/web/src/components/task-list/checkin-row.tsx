@@ -1,11 +1,11 @@
 "use client";
 
 import { CheckCircle2, Circle, Loader2, Info } from "lucide-react";
-import { useState, useCallback } from "react";
+import { useCallback } from "react";
 import type { Task } from "@/lib/task-db";
 import { useRouter } from "next/navigation";
 import { formatDisplayDate } from "@/lib/date-parser";
-import { TaskDetailModal } from "../task-detail-popover";
+import { useTaskModal } from "../task-modal-context";
 import { trpc } from "@/lib/trpc";
 
 export interface CheckInRowProps {
@@ -20,7 +20,7 @@ export interface CheckInRowProps {
  * Shows pending check-in dates for tasks that need follow-up.
  */
 export function CheckInRow({ task, compact, interactive, onRefresh }: CheckInRowProps) {
-  const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const { openTaskModal } = useTaskModal();
   const router = useRouter();
 
   // tRPC mutation
@@ -57,7 +57,7 @@ export function CheckInRow({ task, compact, interactive, onRefresh }: CheckInRow
 
     e.preventDefault();
     e.stopPropagation();
-    setDetailModalOpen(true);
+    openTaskModal(task.id, task.displayId);
   };
 
   const handleCompleteCheckin = (e: React.MouseEvent) => {
@@ -140,7 +140,7 @@ export function CheckInRow({ task, compact, interactive, onRefresh }: CheckInRow
           <button
             onClick={(e) => {
               e.stopPropagation();
-              setDetailModalOpen(true);
+              openTaskModal(task.id, task.displayId);
             }}
             className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-zinc-700 transition-opacity"
             title="View task details"
@@ -149,15 +149,6 @@ export function CheckInRow({ task, compact, interactive, onRefresh }: CheckInRow
           </button>
         )}
       </div>
-
-      {/* Task detail modal */}
-      <TaskDetailModal
-        taskId={task.id}
-        displayId={task.displayId}
-        open={detailModalOpen}
-        onOpenChange={setDetailModalOpen}
-        onUpdate={() => handleRefresh()}
-      />
     </div>
   );
 }

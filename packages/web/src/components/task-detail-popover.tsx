@@ -62,7 +62,8 @@ interface BlockerInfo {
 }
 
 // Task detail from API includes updates and relationships (camelCase)
-interface TaskDetail {
+// Exported for use in task detail page
+export interface TaskDetail {
   id: number;
   displayId: string;
   title: string;
@@ -118,6 +119,63 @@ interface TaskUpdate {
   createdAt: string;
 }
 
+// Shared transformation function for API response to TaskDetail
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function transformTaskData(data: any): TaskDetail {
+  return {
+    id: data.id,
+    displayId: data.displayId,
+    title: data.title,
+    description: data.description ?? null,
+    status: data.status,
+    priority: data.priority ?? null,
+    dueDate: data.dueDate ?? null,
+    checkinBy: data.checkinBy ?? null,
+    checkinId: data.checkinId ?? null,
+    targetPeriod: data.targetPeriod ?? null,
+    ownerId: data.ownerId ?? null,
+    ownerName: data.ownerName ?? null,
+    projectId: data.projectId ?? null,
+    projectSlug: data.projectSlug ?? null,
+    projectName: data.projectName ?? null,
+    projectOrg: data.projectOrg ?? null,
+    projectFullPath: data.projectFullPath ?? null,
+    workstreamId: null,
+    workstreamName: null,
+    sourceMeetingId: data.sourceMeetingId ?? null,
+    sourceMeetingTitle: data.sourceMeetingTitle ?? null,
+    sourceMeetingPath: data.sourceMeetingPath ?? null,
+    dueMeetingId: null,
+    dueMeetingTitle: null,
+    parentId: data.parentId ?? null,
+    parentTask: null,
+    blockers: data.blockers ?? [],
+    blocking: data.blocking ?? [],
+    subtaskCount: data.subtaskCount ?? 0,
+    subtasksComplete: data.subtasksComplete ?? 0,
+    createdAt: data.createdAt,
+    updatedAt: data.updatedAt,
+    completedAt: data.completedAt ?? null,
+    updates: data.updates?.map((u: { id: number; task_id: number; note: string; update_type: string; old_status: string | null; new_status: string | null; created_at: string }) => ({
+      id: u.id,
+      taskId: u.task_id,
+      note: u.note,
+      updateType: u.update_type,
+      oldStatus: u.old_status,
+      newStatus: u.new_status,
+      createdAt: u.created_at,
+    })),
+    checkIns: data.checkIns?.map((c: { id: number; date: string; note: string | null; completed: boolean }) => ({
+      id: c.id,
+      date: c.date,
+      note: c.note,
+      completed: c.completed,
+    })),
+    subtasks: data.subtasks?.map((s: any) => transformTaskData(s)),
+    relatedTasks: undefined,
+  };
+}
+
 interface TaskDetailModalProps {
   taskId: number;
   displayId: string;
@@ -139,97 +197,18 @@ export function TaskDetailModal({
     { enabled: open }
   );
 
-  // Transform tRPC response to TaskDetail (now both use camelCase)
-  const task: TaskDetail | null = taskQuery.data ? {
-    id: taskQuery.data.id,
-    displayId: taskQuery.data.displayId,
-    title: taskQuery.data.title,
-    description: taskQuery.data.description ?? null,
-    status: taskQuery.data.status,
-    priority: taskQuery.data.priority ?? null,
-    dueDate: taskQuery.data.dueDate ?? null,
-    checkinBy: taskQuery.data.checkinBy ?? null,
-    checkinId: taskQuery.data.checkinId ?? null,
-    targetPeriod: taskQuery.data.targetPeriod ?? null,
-    ownerId: taskQuery.data.ownerId ?? null,
-    ownerName: taskQuery.data.ownerName ?? null,
-    projectId: taskQuery.data.projectId ?? null,
-    projectSlug: taskQuery.data.projectSlug ?? null,
-    projectName: taskQuery.data.projectName ?? null,
-    projectOrg: taskQuery.data.projectOrg ?? null,
-    projectFullPath: taskQuery.data.projectFullPath ?? null,
-    workstreamId: null,
-    workstreamName: null,
-    sourceMeetingId: taskQuery.data.sourceMeetingId ?? null,
-    sourceMeetingTitle: taskQuery.data.sourceMeetingTitle ?? null,
-    sourceMeetingPath: taskQuery.data.sourceMeetingPath ?? null,
-    dueMeetingId: null,
-    dueMeetingTitle: null,
-    parentId: taskQuery.data.parentId ?? null,
-    parentTask: null,
-    blockers: taskQuery.data.blockers ?? [],
-    blocking: taskQuery.data.blocking ?? [],
-    subtaskCount: taskQuery.data.subtaskCount ?? 0,
-    subtasksComplete: taskQuery.data.subtasksComplete ?? 0,
-    createdAt: taskQuery.data.createdAt,
-    updatedAt: taskQuery.data.updatedAt,
-    completedAt: taskQuery.data.completedAt ?? null,
-    updates: taskQuery.data.updates?.map(u => ({
-      id: u.id,
-      taskId: u.task_id,
-      note: u.note,
-      updateType: u.update_type,
-      oldStatus: u.old_status,
-      newStatus: u.new_status,
-      createdAt: u.created_at,
-    })),
-    checkIns: taskQuery.data.checkIns?.map(c => ({
-      id: c.id,
-      date: c.date,
-      note: c.note,
-      completed: c.completed,
-    })),
-    subtasks: taskQuery.data.subtasks?.map((s) => ({
-      id: s.id,
-      displayId: s.displayId,
-      title: s.title,
-      description: s.description ?? null,
-      status: s.status,
-      priority: s.priority ?? null,
-      dueDate: s.dueDate ?? null,
-      checkinBy: null,
-      checkinId: null,
-      targetPeriod: s.targetPeriod ?? null,
-      ownerId: s.ownerId ?? null,
-      ownerName: s.ownerName ?? null,
-      projectId: s.projectId ?? null,
-      projectSlug: s.projectSlug ?? null,
-      projectName: s.projectName ?? null,
-      projectOrg: s.projectOrg ?? null,
-      projectFullPath: s.projectFullPath ?? null,
-      workstreamId: null,
-      workstreamName: null,
-      sourceMeetingId: s.sourceMeetingId ?? null,
-      sourceMeetingTitle: s.sourceMeetingTitle ?? null,
-      sourceMeetingPath: s.sourceMeetingPath ?? null,
-      dueMeetingId: null,
-      dueMeetingTitle: null,
-      parentId: s.parentId ?? null,
-      parentTask: null,
-      blockers: (s as typeof s & { blockers?: BlockerInfo[] }).blockers ?? [],
-      blocking: (s as typeof s & { blocking?: BlockerInfo[] }).blocking ?? [],
-      subtaskCount: s.subtaskCount ?? 0,
-      subtasksComplete: s.subtasksComplete ?? 0,
-      createdAt: s.createdAt,
-      updatedAt: s.updatedAt,
-      completedAt: s.completedAt ?? null,
-    })),
-    relatedTasks: undefined,
-  } : null;
+  // Transform tRPC response to TaskDetail using shared function
+  const task: TaskDetail | null = taskQuery.data ? transformTaskData(taskQuery.data) : null;
 
   const handleUpdate = () => {
     taskQuery.refetch();
     onUpdate?.();
+  };
+
+  // Refetch task data without triggering parent list refresh
+  // Use this for check-in operations to avoid closing the modal
+  const handleRefetchTask = () => {
+    taskQuery.refetch();
   };
 
   return (
@@ -257,6 +236,7 @@ export function TaskDetailModal({
             task={task}
             onClose={() => onOpenChange(false)}
             onUpdate={handleUpdate}
+            onRefetchTask={handleRefetchTask}
           />
         )}
       </DialogContent>
@@ -300,9 +280,10 @@ interface TaskDetailContentProps {
   task: TaskDetail;
   onClose: () => void;
   onUpdate: () => void;
+  onRefetchTask: () => void;  // Refetch task without refreshing parent list
 }
 
-export function TaskDetailContent({ task, onClose, onUpdate }: TaskDetailContentProps) {
+export function TaskDetailContent({ task, onClose, onUpdate, onRefetchTask }: TaskDetailContentProps) {
   const [activeTab, setActiveTab] = useState<"details" | "edit" | "activity">("details");
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(
@@ -337,7 +318,8 @@ export function TaskDetailContent({ task, onClose, onUpdate }: TaskDetailContent
   const completeCheckinMutation = trpc.items.completeCheckin.useMutation({
     onSuccess: () => {
       setFeedback({ type: "success", message: "Check-in completed" });
-      onUpdate();
+      // Use onRefetchTask to refresh data without closing modal
+      onRefetchTask();
     },
     onError: (error) => {
       setFeedback({ type: "error", message: error.message || "Failed to complete check-in" });
@@ -521,7 +503,10 @@ export function TaskDetailContent({ task, onClose, onUpdate }: TaskDetailContent
                       )}
                     </div>
                     <button
-                      onClick={() => completeCheckinMutation.mutate({ id: task.id, checkinId: checkin.id })}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        completeCheckinMutation.mutate({ id: task.id, checkinId: checkin.id });
+                      }}
                       disabled={completeCheckinMutation.isPending}
                       className="px-2 py-0.5 text-[9px] bg-purple-600 hover:bg-purple-500 text-white rounded disabled:opacity-50"
                     >
@@ -686,8 +671,8 @@ export function TaskDetailContent({ task, onClose, onUpdate }: TaskDetailContent
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
-        {activeTab === "details" && <DetailsTab task={task} onUpdate={onUpdate} />}
-        {activeTab === "edit" && <EditTab task={task} onClose={onClose} onUpdate={onUpdate} />}
+        {activeTab === "details" && <DetailsTab task={task} onUpdate={onUpdate} onRefetchTask={onRefetchTask} />}
+        {activeTab === "edit" && <EditTab task={task} onClose={onClose} onUpdate={onUpdate} onRefetchTask={onRefetchTask} />}
         {activeTab === "activity" && <ActivityTab task={task} onUpdate={onUpdate} />}
       </div>
     </div>
@@ -695,11 +680,12 @@ export function TaskDetailContent({ task, onClose, onUpdate }: TaskDetailContent
 }
 
 // Details Tab
-function DetailsTab({ task, onUpdate }: { task: TaskDetail; onUpdate: () => void }) {
+function DetailsTab({ task, onUpdate, onRefetchTask }: { task: TaskDetail; onUpdate: () => void; onRefetchTask: () => void }) {
   const [showSubtasks, setShowSubtasks] = useState(true);
   const [showRelated, setShowRelated] = useState(false);
   const [showBlocking, setShowBlocking] = useState(true);
   const [showBlockers, setShowBlockers] = useState(true);
+  const [showCheckins, setShowCheckins] = useState(true);
   const [selectedBlockerTaskId, setSelectedBlockerTaskId] = useState<number | null>(null);
   const [showAddBlocker, setShowAddBlocker] = useState(false);
 
@@ -707,6 +693,10 @@ function DetailsTab({ task, onUpdate }: { task: TaskDetail; onUpdate: () => void
   const blockers = task.blockers ?? [];
 
   const blockingTasks = task.blocking ?? [];
+
+  // Check-ins from task
+  const pendingCheckins = (task.checkIns ?? []).filter(c => !c.completed);
+  const completedCheckins = (task.checkIns ?? []).filter(c => c.completed);
 
   // Fetch all tasks for the add blocker dropdown
   const allTasksQuery = trpc.items.list.useQuery(
@@ -717,12 +707,17 @@ function DetailsTab({ task, onUpdate }: { task: TaskDetail; onUpdate: () => void
     .filter(t => t.id !== task.id && !blockers.some(b => b.id === t.id));
 
   // tRPC mutations for check-in operations
+  // Use onRefetchTask instead of onUpdate to avoid closing the modal
   const completeCheckinMutation = trpc.items.completeCheckin.useMutation({
-    onSuccess: () => onUpdate(),
+    onSuccess: () => onRefetchTask(),
   });
 
   const rescheduleCheckinMutation = trpc.items.rescheduleCheckin.useMutation({
-    onSuccess: () => onUpdate(),
+    onSuccess: () => onRefetchTask(),
+  });
+
+  const deleteCheckinMutation = trpc.items.deleteCheckin.useMutation({
+    onSuccess: () => onRefetchTask(),
   });
 
   // tRPC mutations for blocker operations
@@ -737,22 +732,36 @@ function DetailsTab({ task, onUpdate }: { task: TaskDetail; onUpdate: () => void
     onSuccess: () => onUpdate(),
   });
 
-  const checkinLoading = completeCheckinMutation.isPending || rescheduleCheckinMutation.isPending;
+  const checkinLoading = completeCheckinMutation.isPending || rescheduleCheckinMutation.isPending || deleteCheckinMutation.isPending;
 
-  const handleCompleteCheckin = (clear: boolean = true) => {
+  const handleCompleteCheckin = (checkinId?: number, clear: boolean = false) => {
     if (checkinLoading) return;
     completeCheckinMutation.mutate({
       id: task.id,
-      checkinId: task.checkinId ?? undefined,
+      checkinId: checkinId ?? task.checkinId ?? undefined,
       clear,
     });
   };
 
-  const handleRescheduleCheckin = (daysOffset: number) => {
+  // Calculate next Monday
+  const getNextMonday = () => {
+    const today = new Date();
+    const daysUntilMonday = ((1 - today.getDay()) + 7) % 7 || 7;
+    const nextMonday = new Date(today);
+    nextMonday.setDate(today.getDate() + daysUntilMonday);
+    return nextMonday.toISOString().split("T")[0];
+  };
+
+  const handleRescheduleCheckin = (daysOffset: number | string, checkinId?: number) => {
     if (checkinLoading) return;
-    const newDate = new Date();
-    newDate.setDate(newDate.getDate() + daysOffset);
-    const dateStr = newDate.toISOString().split("T")[0];
+    let dateStr: string;
+    if (typeof daysOffset === "string") {
+      dateStr = daysOffset;
+    } else {
+      const newDate = new Date();
+      newDate.setDate(newDate.getDate() + daysOffset);
+      dateStr = newDate.toISOString().split("T")[0];
+    }
 
     rescheduleCheckinMutation.mutate({
       itemId: task.id,
@@ -825,60 +834,6 @@ function DetailsTab({ task, onUpdate }: { task: TaskDetail; onUpdate: () => void
           </MetaItem>
         )}
 
-        {/* Check-in Date */}
-        {task.checkinBy && (
-          <MetaItem icon={Calendar} label="Check In By">
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center gap-2">
-                <span
-                  className={
-                    new Date(task.checkinBy) <= new Date()
-                      ? "text-purple-400"
-                      : "text-zinc-300"
-                  }
-                >
-                  {formatDisplayDate(task.checkinBy)}
-                </span>
-                <button
-                  onClick={() => handleCompleteCheckin(true)}
-                  disabled={checkinLoading}
-                  className="px-1.5 py-0.5 text-[9px] bg-purple-600 hover:bg-purple-500 text-white rounded disabled:opacity-50"
-                  title="Mark check-in as done and clear the date"
-                >
-                  {checkinLoading ? "..." : "Done & Clear"}
-                </button>
-              </div>
-              {/* Reschedule buttons */}
-              <div className="flex items-center gap-1">
-                <span className="text-[9px] text-zinc-500 mr-1">Reschedule:</span>
-                <button
-                  onClick={() => handleRescheduleCheckin(7)}
-                  disabled={checkinLoading}
-                  className="px-1.5 py-0.5 text-[9px] bg-zinc-700 hover:bg-zinc-600 text-zinc-300 rounded disabled:opacity-50"
-                  title="Reschedule check-in to 1 week from now"
-                >
-                  +1w
-                </button>
-                <button
-                  onClick={() => handleRescheduleCheckin(14)}
-                  disabled={checkinLoading}
-                  className="px-1.5 py-0.5 text-[9px] bg-zinc-700 hover:bg-zinc-600 text-zinc-300 rounded disabled:opacity-50"
-                  title="Reschedule check-in to 2 weeks from now"
-                >
-                  +2w
-                </button>
-                <button
-                  onClick={() => handleRescheduleCheckin(30)}
-                  disabled={checkinLoading}
-                  className="px-1.5 py-0.5 text-[9px] bg-zinc-700 hover:bg-zinc-600 text-zinc-300 rounded disabled:opacity-50"
-                  title="Reschedule check-in to 1 month from now"
-                >
-                  +1m
-                </button>
-              </div>
-            </div>
-          </MetaItem>
-        )}
 
         {/* Project */}
         {task.projectName && (
@@ -916,6 +871,141 @@ function DetailsTab({ task, onUpdate }: { task: TaskDetail; onUpdate: () => void
         )}
 
       </div>
+
+      {/* Check-ins Section */}
+      {(pendingCheckins.length > 0 || completedCheckins.length > 0) && (
+        <div className="border-t border-zinc-800 pt-3">
+          <button
+            onClick={() => setShowCheckins(!showCheckins)}
+            className="flex items-center gap-2 text-[11px] text-zinc-400 hover:text-zinc-200 mb-2"
+          >
+            {showCheckins ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+            <span className={pendingCheckins.length > 0 ? "text-purple-400" : ""}>
+              Check-ins {pendingCheckins.length > 0 ? `(${pendingCheckins.length} pending)` : ""}
+            </span>
+          </button>
+          {showCheckins && (
+            <div className="space-y-2 pl-2">
+              {/* Pending check-ins */}
+              {pendingCheckins.map((checkin) => {
+                const checkinDate = new Date(checkin.date);
+                const isOverdue = checkinDate <= new Date();
+                return (
+                  <div
+                    key={checkin.id}
+                    className={`p-2 rounded text-[11px] ${
+                      isOverdue
+                        ? "bg-purple-900/30 border border-purple-700/50"
+                        : "bg-zinc-800/50 border border-zinc-700/50"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <div className="flex items-center gap-2">
+                        <span className={isOverdue ? "text-purple-300 font-medium" : "text-zinc-300"}>
+                          {formatDisplayDate(checkin.date)}
+                        </span>
+                        {isOverdue && <span className="text-[9px] text-purple-400">(overdue)</span>}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCompleteCheckin(checkin.id);
+                          }}
+                          disabled={checkinLoading}
+                          className="px-1.5 py-0.5 text-[9px] bg-purple-600 hover:bg-purple-500 text-white rounded disabled:opacity-50"
+                          title="Mark check-in as done"
+                        >
+                          {checkinLoading ? "..." : "Done"}
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteCheckinMutation.mutate({ id: checkin.id });
+                          }}
+                          disabled={checkinLoading}
+                          className="p-0.5 text-zinc-500 hover:text-red-400 disabled:opacity-50"
+                          title="Delete check-in"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </div>
+                    {checkin.note && (
+                      <p className="text-[10px] text-zinc-500 mb-1.5">{checkin.note}</p>
+                    )}
+                    {/* Reschedule buttons */}
+                    <div className="flex items-center gap-1 flex-wrap">
+                      <span className="text-[9px] text-zinc-500 mr-1">Reschedule:</span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRescheduleCheckin(1, checkin.id);
+                        }}
+                        disabled={checkinLoading}
+                        className="px-1.5 py-0.5 text-[9px] bg-zinc-700 hover:bg-zinc-600 text-zinc-300 rounded disabled:opacity-50"
+                        title="Tomorrow"
+                      >
+                        +1d
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRescheduleCheckin(getNextMonday(), checkin.id);
+                        }}
+                        disabled={checkinLoading}
+                        className="px-1.5 py-0.5 text-[9px] bg-zinc-700 hover:bg-zinc-600 text-zinc-300 rounded disabled:opacity-50"
+                        title="Next Monday"
+                      >
+                        Mon
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRescheduleCheckin(7, checkin.id);
+                        }}
+                        disabled={checkinLoading}
+                        className="px-1.5 py-0.5 text-[9px] bg-zinc-700 hover:bg-zinc-600 text-zinc-300 rounded disabled:opacity-50"
+                        title="+1 week"
+                      >
+                        +1w
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRescheduleCheckin(14, checkin.id);
+                        }}
+                        disabled={checkinLoading}
+                        className="px-1.5 py-0.5 text-[9px] bg-zinc-700 hover:bg-zinc-600 text-zinc-300 rounded disabled:opacity-50"
+                        title="+2 weeks"
+                      >
+                        +2w
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRescheduleCheckin(30, checkin.id);
+                        }}
+                        disabled={checkinLoading}
+                        className="px-1.5 py-0.5 text-[9px] bg-zinc-700 hover:bg-zinc-600 text-zinc-300 rounded disabled:opacity-50"
+                        title="+1 month"
+                      >
+                        +1m
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+              {/* Completed check-ins (collapsed) */}
+              {completedCheckins.length > 0 && (
+                <div className="text-[10px] text-zinc-600">
+                  {completedCheckins.length} completed check-in{completedCheckins.length > 1 ? "s" : ""}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Blockers Section (many-to-many) */}
       {(blockers.length > 0 || task.status !== "complete") && (
@@ -1116,10 +1206,12 @@ function EditTab({
   task,
   onClose,
   onUpdate,
+  onRefetchTask,
 }: {
   task: TaskDetail;
   onClose: () => void;
   onUpdate: () => void;
+  onRefetchTask: () => void;
 }) {
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description || "");
@@ -1169,9 +1261,6 @@ function EditTab({
     }
   }, [taskDetailQuery.data, task.ownerId]);
 
-  // tRPC utils for cache invalidation
-  const utils = trpc.useUtils();
-
   // tRPC mutations
   const updateMutation = trpc.items.update.useMutation();
   const addPersonMutation = trpc.items.addPerson.useMutation();
@@ -1182,9 +1271,8 @@ function EditTab({
     onSuccess: (data) => {
       console.log("Check-in added successfully:", data);
       setNewCheckinDate("");
-      // Invalidate the query cache to ensure fresh data
-      utils.items.get.invalidate({ id: task.id });
-      onUpdate();
+      // Use onRefetchTask to refresh data without closing modal
+      onRefetchTask();
     },
     onError: (error) => {
       console.error("Failed to add check-in:", error);
@@ -1193,8 +1281,8 @@ function EditTab({
   });
   const deleteCheckinMutation = trpc.items.deleteCheckin.useMutation({
     onSuccess: () => {
-      utils.items.get.invalidate({ id: task.id });
-      onUpdate();
+      // Use onRefetchTask to refresh data without closing modal
+      onRefetchTask();
     },
   });
 
@@ -1463,7 +1551,10 @@ function EditTab({
                   {!checkin.completed && (
                     <button
                       type="button"
-                      onClick={() => deleteCheckinMutation.mutate({ id: checkin.id })}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteCheckinMutation.mutate({ id: checkin.id });
+                      }}
                       disabled={checkinLoading}
                       className="text-zinc-500 hover:text-red-400 disabled:opacity-50"
                       title="Delete check-in"
@@ -1488,7 +1579,8 @@ function EditTab({
           </div>
           <button
             type="button"
-            onClick={() => {
+            onClick={(e) => {
+              e.stopPropagation();
               if (newCheckinDate) {
                 console.log("Adding check-in:", { itemId: task.id, date: newCheckinDate });
                 addCheckinMutation.mutate({ itemId: task.id, date: newCheckinDate });
@@ -1514,7 +1606,8 @@ function EditTab({
             <button
               key={label}
               type="button"
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 const date = new Date();
                 date.setDate(date.getDate() + days);
                 addCheckinMutation.mutate({ itemId: task.id, date: date.toISOString().split("T")[0] });

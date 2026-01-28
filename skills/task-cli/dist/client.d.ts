@@ -1203,6 +1203,29 @@ export declare const trpc: import("@trpc/client").TRPCClient<import("@trpc/serve
             meta: object;
         }>;
     }>>;
+    notifications: import("@trpc/server").TRPCBuiltRouter<{
+        ctx: import("../lib/server/trpc/trpc.js").TRPCContext;
+        meta: object;
+        errorShape: import("@trpc/server").TRPCDefaultErrorShape;
+        transformer: true;
+    }, import("@trpc/server").TRPCDecorateCreateRouterOptions<{
+        aiContentCreated: import("@trpc/server").TRPCMutationProcedure<{
+            input: {
+                filePath: string;
+                title: string;
+                contentType: "document" | "workstream" | "project" | "meeting-notes" | "other";
+                message?: string | undefined;
+            };
+            output: {
+                success: boolean;
+                notified: boolean;
+                contentType: "document" | "workstream" | "project" | "meeting-notes" | "other";
+                title: string;
+                filePath: string;
+            };
+            meta: object;
+        }>;
+    }>>;
     organizations: import("@trpc/server").TRPCBuiltRouter<{
         ctx: import("../lib/server/trpc/trpc.js").TRPCContext;
         meta: object;
@@ -2645,6 +2668,69 @@ export declare const trpc: import("@trpc/client").TRPCClient<import("@trpc/serve
                 clients: string[];
                 clientSummaries: import("../lib/server/trpc/routers/timecard.js").ClientSummary[];
                 monthlySummaries: import("../lib/server/trpc/routers/timecard.js").MonthSummary[];
+            };
+            meta: object;
+        }>;
+    }>>;
+    focus: import("@trpc/server").TRPCBuiltRouter<{
+        ctx: import("../lib/server/trpc/trpc.js").TRPCContext;
+        meta: object;
+        errorShape: import("@trpc/server").TRPCDefaultErrorShape;
+        transformer: true;
+    }, import("@trpc/server").TRPCDecorateCreateRouterOptions<{
+        list: import("@trpc/server").TRPCQueryProcedure<{
+            input: {
+                limit?: number | undefined;
+                startDate?: string | undefined;
+                endDate?: string | undefined;
+            } | undefined;
+            output: {
+                entries: import("../lib/server/trpc/routers/focus.js").FocusEntry[];
+            };
+            meta: object;
+        }>;
+        get: import("@trpc/server").TRPCQueryProcedure<{
+            input: {
+                date: string;
+            };
+            output: {
+                entry: import("../lib/server/trpc/routers/focus.js").FocusEntry | null;
+            };
+            meta: object;
+        }>;
+        upsert: import("@trpc/server").TRPCMutationProcedure<{
+            input: {
+                date: string;
+                userRating?: number | undefined;
+                aiRating?: number | undefined;
+                userNotes?: string | undefined;
+                aiNotes?: string | undefined;
+            };
+            output: {
+                date: string;
+                created: boolean;
+                updated: boolean;
+            };
+            meta: object;
+        }>;
+        summary: import("@trpc/server").TRPCQueryProcedure<{
+            input: {
+                startDate?: string | undefined;
+                endDate?: string | undefined;
+                period?: "all" | "month" | "week" | undefined;
+            } | undefined;
+            output: {
+                avgUserRating: number | null;
+                avgAiRating: number | null;
+                entryCount: number;
+                period: string;
+                weeklyBreakdown: {
+                    weekStart: string;
+                    avgUserRating: number | null;
+                    avgAiRating: number | null;
+                    entryCount: number;
+                }[];
+                entries: import("../lib/server/trpc/routers/focus.js").FocusEntry[];
             };
             meta: object;
         }>;

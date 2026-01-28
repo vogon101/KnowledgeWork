@@ -6,15 +6,15 @@
  * 1. Helper functions for parsing emails
  * 2. Router structure and error handling
  *
- * Note: These tests mock the gmail-client module and use a mock prisma
+ * Note: These tests mock the google-client module and use a mock prisma
  * since the Gmail router doesn't actually use the database.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createCaller } from '../trpc/index.js';
 
-// Mock the gmail-client module
-vi.mock('../services/gmail-client.js', () => ({
+// Mock the google-client module
+vi.mock('../services/google-client.js', () => ({
   getGmailClient: vi.fn(),
   getPeopleClient: vi.fn(),
   isGmailConfigured: vi.fn(),
@@ -30,7 +30,7 @@ import {
   hasCredentials,
   hasTokens,
   getAuthenticatedEmail,
-} from '../services/gmail-client.js';
+} from '../services/google-client.js';
 
 // Mock prisma - Gmail router doesn't need actual database access
 const mockPrisma = {} as any;

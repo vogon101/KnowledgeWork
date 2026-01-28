@@ -2,7 +2,7 @@
 name: resumeday
 description: Morning check-in - restore context and review today's tasks.
 user-invocable: true
-allowed-tools: Read, Grep, Bash(.claude/skills/task-cli/scripts/task-cli.sh:*), Bash(.claude/skills/dates/scripts/date_context.sh:*)
+allowed-tools: Read, Grep, Bash(.claude/skills/task-cli/scripts/task-cli.sh:*), Bash(.claude/skills/dates/scripts/date_context.sh:*), Bash(.claude/skills/google/scripts/google-cli.sh:*)
 ---
 
 # Resume Day
@@ -26,11 +26,29 @@ Resume a working session. Quick morning check-in to restore context.
 
 5. **Projects** - Any urgent items or blockers from INDEX.md?
 
-6. **Email (optional)** - If user requests or context suggests:
+6. **Email & Calendar Review** - Check schedule and inbox:
+
    ```bash
-   .claude/skills/gmail/scripts/gmail-cli.sh search "category:primary is:unread"
+   # Check today's calendar
+   .claude/skills/google/scripts/google-cli.sh calendar today
+
+   # Search primary inbox (not archived) - includes read and unread
+   .claude/skills/google/scripts/google-cli.sh gmail search "category:primary in:inbox newer_than:2d"
+
+   # Read specific email by ID
+   .claude/skills/google/scripts/google-cli.sh gmail get MESSAGE_ID
    ```
-   Only check if asked. Don't create tasks from emails without confirmation.
+
+   **Process to identify:**
+   - Today's meetings and schedule
+   - Urgent items needing attention today
+   - Replies that might update existing tasks
+   - New action items
+
+   ### PROPOSE Changes, Don't Make Them
+
+   **Never create or update tasks from emails without asking.**
+   Summarise findings, propose changes, use `AskUserQuestion`, wait for confirmation.
 
 ## Output
 

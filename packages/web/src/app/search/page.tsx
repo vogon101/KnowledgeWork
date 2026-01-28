@@ -7,7 +7,7 @@ import { Search, Calendar, FolderKanban, Users, FileText, Loader2, X, Filter, Ch
 import Link from "next/link";
 
 interface SearchResult {
-  type: "diary" | "project" | "meeting" | "task";
+  type: "diary" | "project" | "meeting" | "task" | "file";
   title: string;
   href: string;
   snippet?: string;
@@ -21,6 +21,9 @@ interface SearchResult {
   taskStatus?: string;
   taskOwner?: string;
   taskPriority?: number;
+  // File-specific
+  filePath?: string;
+  fileExtension?: string;
 }
 
 // Parse field:value format
@@ -106,6 +109,7 @@ function SearchContent() {
     project: FolderKanban,
     meeting: Users,
     task: CheckSquare,
+    file: FileText,
   };
 
   const typeColors = {
@@ -113,6 +117,7 @@ function SearchContent() {
     project: "text-emerald-400",
     meeting: "text-purple-400",
     task: "text-amber-400",
+    file: "text-zinc-400",
   };
 
   const taskStatusIcons = {
@@ -158,7 +163,7 @@ function SearchContent() {
       <div>
         <h1 className="text-xl font-semibold tracking-tight">Search</h1>
         <p className="text-[13px] text-zinc-500">
-          Search across tasks, diary entries, projects, and meetings
+          Search across tasks, diary entries, projects, meetings, and files
         </p>
       </div>
 

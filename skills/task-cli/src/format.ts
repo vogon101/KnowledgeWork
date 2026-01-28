@@ -31,6 +31,8 @@ type FormattableItem = {
   subtasksComplete?: number;
   createdAt?: string;
   updatedAt?: string;
+  checkinBy?: string | null;
+  checkinId?: number | null;
   [key: string]: unknown; // Allow extra properties from tRPC
 };
 
@@ -97,6 +99,32 @@ function formatDue(dueDate: string | null | undefined): string {
   }
 }
 
+// Format check-in date
+function formatCheckin(checkinBy: string | null | undefined): string {
+  if (!checkinBy) return '';
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const checkin = new Date(checkinBy);
+  checkin.setHours(0, 0, 0, 0);
+
+  const diffDays = Math.round((checkin.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (diffDays < 0) {
+    return `CHECKIN:${Math.abs(diffDays)}d ago`;
+  } else if (diffDays === 0) {
+    return 'checkin:today';
+  } else if (diffDays === 1) {
+    return 'checkin:tmrw';
+  } else if (diffDays <= 7) {
+    return `checkin:${diffDays}d`;
+  } else {
+    const month = checkin.toLocaleString('en-GB', { month: 'short' });
+    const day = checkin.getDate();
+    return `checkin:${day} ${month}`;
+  }
+}
+
 // Format project path (org/slug) for context
 function formatProjectPath(item: FormattableItem): string {
   if (!item.projectSlug) return '';
@@ -115,8 +143,9 @@ export function formatItemLine(item: FormattableItem): string {
   const title = pad(item.title, TITLE_WIDTH);
   const project = pad(formatProjectPath(item), PROJECT_WIDTH);
   const due = formatDue(item.dueDate);
+  const checkin = formatCheckin(item.checkinBy);
 
-  return `${id}  ${status}  ${priority}  ${owner}  ${title}  ${project}  ${due}`;
+  return `${id}  ${status}  ${priority}  ${owner}  ${title}  ${project}  ${due}${checkin ? `  ${checkin}` : ''}`;
 }
 
 // Format a list of items
@@ -178,6 +207,11 @@ export function formatItemDetail(item: FormattableItem): string {
   }
   if (item.targetPeriod) {
     lines.push(`Target:   ${item.targetPeriod}`);
+  }
+
+  // Check-in
+  if (item.checkinBy) {
+    lines.push(`Check-in: ${item.checkinBy} (${formatCheckin(item.checkinBy)})`);
   }
 
   // Relationships

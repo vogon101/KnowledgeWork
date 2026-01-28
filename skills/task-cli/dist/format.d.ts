@@ -28,6 +28,8 @@ type FormattableItem = {
     subtasksComplete?: number;
     createdAt?: string;
     updatedAt?: string;
+    checkinBy?: string | null;
+    checkinId?: number | null;
     [key: string]: unknown;
 };
 export declare function formatItemLine(item: FormattableItem): string;

@@ -319,14 +319,14 @@ async function main() {
     'skills/task-cli/lib/server'
   );
 
-  // 9. Create gmail-cli lib symlink
-  const gmailCliLibDir = path.join(frameworkPath, 'skills/gmail/lib');
-  ensureDir(gmailCliLibDir, 'skills/gmail/lib/');
+  // 9. Create google-cli lib symlink
+  const gmailCliLibDir = path.join(frameworkPath, 'skills/google/lib');
+  ensureDir(gmailCliLibDir, 'skills/google/lib/');
 
   safeCreateSymlink(
     path.join(gmailCliLibDir, 'server'),
     path.join(frameworkPath, 'packages/server/dist'),
-    'skills/gmail/lib/server'
+    'skills/google/lib/server'
   );
 
   // 10. Verify setup
@@ -389,7 +389,7 @@ async function main() {
     info('Task CLI lib symlink resolves correctly');
   }
 
-  // Check gmail-cli lib symlink
+  // Check google-cli lib symlink
   const gmailLibCheck = path.join(gmailCliLibDir, 'server/trpc');
   if (!fs.existsSync(gmailLibCheck)) {
     warn("Gmail CLI lib symlink not resolving (run 'pnpm build' first?)");

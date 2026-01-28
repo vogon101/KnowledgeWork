@@ -6,7 +6,17 @@ set -e
 
 case "${1:-basic}" in
     basic)
-        # Default: show today, yesterday, tomorrow
+        # Default: show today, yesterday, tomorrow with current time
+        current_hour=$(date '+%H')
+        echo "Current time: $(date '+%H:%M %Z')"
+        echo ""
+        # Warn if between midnight and 3am - "today" might mean yesterday to the user
+        if [ "$current_hour" -lt 3 ]; then
+            echo "⚠️  LATE NIGHT: It's after midnight but before 3am."
+            echo "   When the user says 'today', they likely mean $(date -v-1d '+%A %d %B')."
+            echo "   Use judgement based on context."
+            echo ""
+        fi
         echo "Today: $(date '+%A %d %B %Y')"
         echo "Yesterday: $(date -v-1d '+%A %d %B %Y')"
         echo "Tomorrow: $(date -v+1d '+%A %d %B %Y')"

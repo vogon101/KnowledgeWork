@@ -3,7 +3,7 @@ import { getDiaryEntries, getProjects, getMeetings } from "@/lib/knowledge-base"
 import { searchTasks, isTaskDbAvailable, getTaskById, type Task } from "@/lib/task-db";
 
 interface SearchResult {
-  type: "diary" | "project" | "meeting" | "task" | "person" | "organization" | "workstream";
+  type: "diary" | "project" | "meeting" | "task" | "person" | "organization" | "workstream" | "file";
   title: string;
   href: string;
   snippet?: string;
@@ -26,6 +26,9 @@ interface SearchResult {
   // Workstream/Project-specific fields
   projectSlug?: string;
   projectOrg?: string;
+  // File-specific fields
+  filePath?: string;
+  fileExtension?: string;
 }
 
 // Parse field-specific queries like "attendee:John" or "tag:nuclear"
@@ -636,6 +639,77 @@ export async function GET(request: NextRequest) {
         }
       } catch (error) {
         console.error("Workstream search error:", error);
+      }
+    }
+
+    // Search files by name (general queries only, exclude READMEs and workstreams)
+    if (!field) {
+      try {
+        const filesResponse = await fetch(
+          `http://localhost:3004/api/trpc/files.search?input=${encodeURIComponent(JSON.stringify({
+            json: {
+              query,
+              path: "",
+              limit: 30
+            }
+          }))}`,
+          { cache: "no-store" }
+        );
+        if (filesResponse.ok) {
+          const filesData = await filesResponse.json();
+          const fileResults = filesData.result?.data?.json?.results || [];
+
+          for (const file of fileResults) {
+            const fileName = file.entry?.name || "";
+            const filePath = file.entry?.path || "";
+            const fileNameLower = fileName.toLowerCase();
+
+            // Skip README files (already covered by projects)
+            if (fileNameLower === "readme.md") continue;
+
+            // Skip workstream markdown files in projects directories
+            // Pattern: {org}/projects/{project}/{workstream}.md (but not README.md)
+            const isWorkstreamFile = /^[^/]+\/projects\/[^/]+\/[^/]+\.md$/.test(filePath) && fileNameLower !== "readme.md";
+            if (isWorkstreamFile) continue;
+
+            // Use the score from file search, but scale it down slightly
+            // since file name matches are less contextual than content matches
+            const score = Math.round(file.score * 0.6);
+
+            if (score > 0) {
+              // Determine href based on file type
+              const extension = file.entry?.extension || "";
+              let href = `/files/${filePath}`;
+
+              // For markdown files, check if they're in a viewable location
+              if (extension === ".md") {
+                // Diary entries: diary/YYYY/MM/DD.md
+                const diaryMatch = filePath.match(/^diary\/(\d{4})\/(\d{2})\/(\d{2})\.md$/);
+                if (diaryMatch) {
+                  href = `/diary/${diaryMatch[1]}/${diaryMatch[2]}/${diaryMatch[3]}`;
+                }
+                // Meeting notes: {org}/meetings/YYYY/MM/{slug}.md
+                const meetingMatch = filePath.match(/^([^/]+)\/meetings\/(\d{4})\/(\d{2})\/([^/]+)\.md$/);
+                if (meetingMatch) {
+                  href = `/meetings/${meetingMatch[1]}/${meetingMatch[2]}/${meetingMatch[3]}/${meetingMatch[4].replace(/\.md$/, "")}`;
+                }
+              }
+
+              results.push({
+                type: "file",
+                title: fileName,
+                href,
+                snippet: filePath,
+                matchType: "title",
+                score,
+                filePath,
+                fileExtension: extension,
+              });
+            }
+          }
+        }
+      } catch (error) {
+        console.error("File search error:", error);
       }
     }
 

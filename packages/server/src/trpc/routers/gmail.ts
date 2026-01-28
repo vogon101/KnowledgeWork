@@ -2,7 +2,7 @@
  * Gmail Router (tRPC)
  *
  * Type-safe API for Gmail operations.
- * Requires Gmail OAuth setup via: npx tsx src/scripts/gmail-auth.ts
+ * Requires Gmail OAuth setup via: npx tsx src/scripts/google-auth.ts
  */
 
 import { z } from 'zod';
@@ -27,7 +27,7 @@ import {
   hasCredentials,
   hasTokens,
   getAuthenticatedEmail,
-} from '../../services/gmail-client.js';
+} from '../../services/google-client.js';
 import type { gmail_v1 } from 'googleapis';
 
 // =============================================================================
@@ -241,8 +241,8 @@ export const gmailRouter = router({
         authenticated: false,
         email: null,
         error: !hasCredentialsFile
-          ? 'Gmail credentials not found. Run: npx tsx src/scripts/gmail-auth.ts'
-          : 'Gmail not authenticated. Run: npx tsx src/scripts/gmail-auth.ts',
+          ? 'Gmail credentials not found. Run: npx tsx src/scripts/google-auth.ts'
+          : 'Gmail not authenticated. Run: npx tsx src/scripts/google-auth.ts',
       };
     }
 
@@ -265,7 +265,7 @@ export const gmailRouter = router({
       if (!gmail) {
         throw new TRPCError({
           code: 'PRECONDITION_FAILED',
-          message: 'Gmail not configured. Run: npx tsx src/scripts/gmail-auth.ts',
+          message: 'Gmail not configured. Run: npx tsx src/scripts/google-auth.ts',
         });
       }
 
@@ -320,7 +320,7 @@ export const gmailRouter = router({
       if (!gmail) {
         throw new TRPCError({
           code: 'PRECONDITION_FAILED',
-          message: 'Gmail not configured. Run: npx tsx src/scripts/gmail-auth.ts',
+          message: 'Gmail not configured. Run: npx tsx src/scripts/google-auth.ts',
         });
       }
 
@@ -369,7 +369,7 @@ export const gmailRouter = router({
       if (!gmail) {
         throw new TRPCError({
           code: 'PRECONDITION_FAILED',
-          message: 'Gmail not configured. Run: npx tsx src/scripts/gmail-auth.ts',
+          message: 'Gmail not configured. Run: npx tsx src/scripts/google-auth.ts',
         });
       }
 
@@ -404,7 +404,7 @@ export const gmailRouter = router({
       if (!gmail) {
         throw new TRPCError({
           code: 'PRECONDITION_FAILED',
-          message: 'Gmail not configured. Run: npx tsx src/scripts/gmail-auth.ts',
+          message: 'Gmail not configured. Run: npx tsx src/scripts/google-auth.ts',
         });
       }
 
@@ -443,7 +443,7 @@ export const gmailRouter = router({
     if (!gmail) {
       throw new TRPCError({
         code: 'PRECONDITION_FAILED',
-        message: 'Gmail not configured. Run: npx tsx src/scripts/gmail-auth.ts',
+        message: 'Gmail not configured. Run: npx tsx src/scripts/google-auth.ts',
       });
     }
 
@@ -476,7 +476,7 @@ export const gmailRouter = router({
       if (!gmail) {
         throw new TRPCError({
           code: 'PRECONDITION_FAILED',
-          message: 'Gmail not configured. Run: npx tsx src/scripts/gmail-auth.ts',
+          message: 'Gmail not configured. Run: npx tsx src/scripts/google-auth.ts',
         });
       }
 
@@ -513,7 +513,7 @@ export const gmailRouter = router({
       if (!gmail) {
         throw new TRPCError({
           code: 'PRECONDITION_FAILED',
-          message: 'Gmail not configured. Run: npx tsx src/scripts/gmail-auth.ts',
+          message: 'Gmail not configured. Run: npx tsx src/scripts/google-auth.ts',
         });
       }
 
@@ -550,7 +550,7 @@ export const gmailRouter = router({
       if (!gmail) {
         throw new TRPCError({
           code: 'PRECONDITION_FAILED',
-          message: 'Gmail not configured. Run: npx tsx src/scripts/gmail-auth.ts',
+          message: 'Gmail not configured. Run: npx tsx src/scripts/google-auth.ts',
         });
       }
 
@@ -587,7 +587,7 @@ export const gmailRouter = router({
       if (!gmail) {
         throw new TRPCError({
           code: 'PRECONDITION_FAILED',
-          message: 'Gmail not configured. Run: npx tsx src/scripts/gmail-auth.ts',
+          message: 'Gmail not configured. Run: npx tsx src/scripts/google-auth.ts',
         });
       }
 
@@ -621,7 +621,7 @@ export const gmailRouter = router({
       if (!gmail) {
         throw new TRPCError({
           code: 'PRECONDITION_FAILED',
-          message: 'Gmail not configured. Run: npx tsx src/scripts/gmail-auth.ts',
+          message: 'Gmail not configured. Run: npx tsx src/scripts/google-auth.ts',
         });
       }
 
@@ -658,7 +658,7 @@ export const gmailRouter = router({
       if (!people) {
         throw new TRPCError({
           code: 'PRECONDITION_FAILED',
-          message: 'People API not configured. Re-run gmail-auth.ts to add contacts scope.',
+          message: 'People API not configured. Re-run google-auth.ts to add contacts scope.',
         });
       }
 
@@ -701,7 +701,7 @@ export const gmailRouter = router({
         if (error.code === 403 || error.message?.includes('scope')) {
           throw new TRPCError({
             code: 'PRECONDITION_FAILED',
-            message: 'Contacts scope not authorized. Re-run gmail-auth.ts to add contacts permission.',
+            message: 'Contacts scope not authorized. Re-run google-auth.ts to add contacts permission.',
           });
         }
         throw err;
@@ -720,7 +720,7 @@ export const gmailRouter = router({
       if (!people) {
         throw new TRPCError({
           code: 'PRECONDITION_FAILED',
-          message: 'People API not configured. Re-run gmail-auth.ts to add contacts scope.',
+          message: 'People API not configured. Re-run google-auth.ts to add contacts scope.',
         });
       }
 
@@ -757,7 +757,7 @@ export const gmailRouter = router({
         if (error.code === 403 || error.message?.includes('scope')) {
           throw new TRPCError({
             code: 'PRECONDITION_FAILED',
-            message: 'Contacts scope not authorized. Re-run gmail-auth.ts to add contacts permission.',
+            message: 'Contacts scope not authorized. Re-run google-auth.ts to add contacts permission.',
           });
         }
         throw err;

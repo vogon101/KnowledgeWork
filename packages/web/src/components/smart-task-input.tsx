@@ -49,9 +49,10 @@ interface SmartTaskInputProps {
   onPrioritySelect?: (priority: number) => void;
   onDateSelect?: (date: string) => void;
   className?: string;
+  defaultUserId?: number;
 }
 
-type TriggerType = "person" | "project" | "priority" | null;
+type TriggerType = "person" | "project" | "priority" | "date" | null;
 
 interface TriggerState {
   type: TriggerType;
@@ -106,6 +107,57 @@ WEEKDAYS_SHORT.forEach((day, i) => {
   DATE_KEYWORDS[day] = () => getNextWeekday(i);
 });
 
+// Months for parsing dates like "!jan15" or "!15jan"
+const MONTHS_SHORT = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+
+// Parse explicit date with ! prefix (returns date string or null)
+function parseExplicitDate(keyword: string): string | null {
+  const lower = keyword.toLowerCase();
+
+  // Check simple keywords first
+  if (DATE_KEYWORDS[lower]) {
+    return DATE_KEYWORDS[lower]();
+  }
+
+  // ISO format: 2026-01-15
+  if (/^\d{4}-\d{2}-\d{2}$/.test(lower)) {
+    return lower;
+  }
+
+  // Month-day format: jan15, 15jan
+  const monthDayMatch = lower.match(/^(\d{1,2})(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)$/) ||
+    lower.match(/^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)(\d{1,2})$/);
+
+  if (monthDayMatch) {
+    let monthStr: string;
+    let day: number;
+
+    if (isNaN(parseInt(monthDayMatch[1], 10))) {
+      // "jan15" format
+      monthStr = monthDayMatch[1];
+      day = parseInt(monthDayMatch[2], 10);
+    } else {
+      // "15jan" format
+      day = parseInt(monthDayMatch[1], 10);
+      monthStr = monthDayMatch[2];
+    }
+
+    const monthIndex = MONTHS_SHORT.indexOf(monthStr);
+    if (monthIndex !== -1 && day >= 1 && day <= 31) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const result = new Date(today.getFullYear(), monthIndex, day);
+      // If the date is in the past, assume next year
+      if (result < today) {
+        result.setFullYear(result.getFullYear() + 1);
+      }
+      return result.toISOString().split('T')[0];
+    }
+  }
+
+  return null;
+}
+
 // Format date for display
 function formatDateDisplay(dateStr: string): string {
   const date = new Date(dateStr);
@@ -138,6 +190,7 @@ export const SmartTaskInput = forwardRef<SmartTaskInputRef, SmartTaskInputProps>
   onPrioritySelect,
   onDateSelect,
   className,
+  defaultUserId,
 }, ref) {
   const inputRef = useRef<HTMLInputElement>(null);
   const measureRef = useRef<HTMLSpanElement>(null);
@@ -151,9 +204,13 @@ export const SmartTaskInput = forwardRef<SmartTaskInputRef, SmartTaskInputProps>
   const [badges, setBadges] = useState<RecognizedToken[]>([]);
 
   // Expose methods via ref
+  // Date triggers don't count as "unactioned" - they resolve on space or become text
   useImperativeHandle(ref, () => ({
-    hasUnactionedToken: () => trigger !== null,
-    getUnactionedTokenType: () => trigger?.type || null,
+    hasUnactionedToken: () => trigger !== null && trigger.type !== "date",
+    getUnactionedTokenType: () => {
+      if (!trigger || trigger.type === "date") return null;
+      return trigger.type;
+    },
   }), [trigger]);
 
   // Get items for dropdown based on trigger type
@@ -225,9 +282,9 @@ export const SmartTaskInput = forwardRef<SmartTaskInputRef, SmartTaskInputProps>
       const charBefore = cursorPosition > 1 ? newValue[cursorPosition - 2] : " ";
       const isAtWordBoundary = charBefore === " " || cursorPosition === 1;
 
-      // Trigger on @ or # if at start or after space
-      if ((charJustTyped === "@" || charJustTyped === "#") && isAtWordBoundary) {
-        const triggerType: TriggerType = charJustTyped === "@" ? "person" : "project";
+      // Trigger on @, #, or ! if at start or after space
+      if ((charJustTyped === "@" || charJustTyped === "#" || charJustTyped === "!") && isAtWordBoundary) {
+        const triggerType: TriggerType = charJustTyped === "@" ? "person" : charJustTyped === "#" ? "project" : "date";
         setTrigger({
           type: triggerType,
           startPosition: cursorPosition - 1,
@@ -272,7 +329,7 @@ export const SmartTaskInput = forwardRef<SmartTaskInputRef, SmartTaskInputProps>
           return;
         }
 
-        const triggerChar = trigger.type === "person" ? "@" : trigger.type === "project" ? "#" : "p";
+        const triggerChar = trigger.type === "person" ? "@" : trigger.type === "project" ? "#" : trigger.type === "date" ? "!" : "p";
         if (newValue[trigger.startPosition] !== triggerChar) {
           setTrigger(null);
           return;
@@ -283,40 +340,8 @@ export const SmartTaskInput = forwardRef<SmartTaskInputRef, SmartTaskInputProps>
           searchText,
         });
       }
-
-      // Check for date keywords at word boundaries (only at start or end of input for safety)
-      // This prevents "Do prep for thursday" from being parsed
-      const words = newValue.toLowerCase().split(/\s+/);
-      const firstWord = words[0];
-      const lastWord = words[words.length - 1];
-
-      // Only auto-detect dates as first or last word, and only if not already a badge
-      const existingDateBadge = badges.find(b => b.type === "date");
-      if (!existingDateBadge && !trigger) {
-        let detectedDate: { keyword: string; date: string; position: 'start' | 'end' } | null = null;
-
-        if (firstWord && DATE_KEYWORDS[firstWord]) {
-          detectedDate = { keyword: firstWord, date: DATE_KEYWORDS[firstWord](), position: 'start' };
-        } else if (lastWord && lastWord !== firstWord && DATE_KEYWORDS[lastWord]) {
-          detectedDate = { keyword: lastWord, date: DATE_KEYWORDS[lastWord](), position: 'end' };
-        }
-
-        if (detectedDate) {
-          // Add as a badge that user can dismiss
-          const startPos = detectedDate.position === 'start' ? 0 : newValue.toLowerCase().lastIndexOf(detectedDate.keyword);
-          setBadges(prev => [...prev.filter(b => b.type !== "date"), {
-            type: "date",
-            text: detectedDate!.keyword,
-            startPosition: startPos,
-            endPosition: startPos + detectedDate!.keyword.length,
-            resolvedValue: detectedDate!.date,
-            resolvedLabel: formatDateDisplay(detectedDate!.date),
-          }]);
-          onDateSelect?.(detectedDate.date);
-        }
-      }
     },
-    [onChange, trigger, badges, onDateSelect]
+    [onChange, trigger]
   );
 
   // Handle key events for dropdown navigation
@@ -345,7 +370,65 @@ export const SmartTaskInput = forwardRef<SmartTaskInputRef, SmartTaskInputProps>
         return;
       }
 
-      if (e.key === "Enter" || e.key === "Tab") {
+      if (e.key === "Enter" || e.key === "Tab" || e.key === " ") {
+        // Handle special @me and @none mentions
+        if (trigger.type === "person") {
+          const searchLower = trigger.searchText.toLowerCase();
+
+          if (searchLower === "me" && defaultUserId) {
+            e.preventDefault();
+            // Select default user
+            const person = people.find(p => p.id === defaultUserId);
+            handleSelect(String(defaultUserId), person?.name || "Me");
+            return;
+          }
+
+          if (searchLower === "none") {
+            e.preventDefault();
+            // Remove @none from text, clear owner
+            const beforeTrigger = value.substring(0, trigger.startPosition);
+            const afterToken = value.substring(trigger.startPosition + 1 + trigger.searchText.length);
+            let cleanedValue = (beforeTrigger + afterToken).replace(/\s+/g, ' ').trim();
+            onChange(cleanedValue);
+            onPersonSelect?.(0);
+            // Remove person badge if exists
+            setBadges(prev => prev.filter(b => b.type !== "person"));
+            setTrigger(null);
+            return;
+          }
+        }
+
+        // Handle !date triggers on space/enter
+        if (trigger.type === "date" && trigger.searchText) {
+          const parsedDate = parseExplicitDate(trigger.searchText);
+          if (parsedDate) {
+            e.preventDefault();
+            // Remove the !keyword from the input
+            const beforeTrigger = value.substring(0, trigger.startPosition);
+            const afterToken = value.substring(trigger.startPosition + 1 + trigger.searchText.length);
+            let cleanedValue = (beforeTrigger + afterToken).replace(/\s+/g, ' ').trim();
+            onChange(cleanedValue);
+
+            // Add date badge
+            setBadges(prev => [...prev.filter(b => b.type !== "date"), {
+              type: "date",
+              text: `!${trigger.searchText}`,
+              startPosition: 0,
+              endPosition: 0,
+              resolvedValue: parsedDate,
+              resolvedLabel: formatDateDisplay(parsedDate),
+            }]);
+            onDateSelect?.(parsedDate);
+            setTrigger(null);
+            return;
+          }
+        }
+
+        // For space, only handle special cases above, otherwise let it pass through
+        if (e.key === " ") {
+          return;
+        }
+
         if (filteredItems.length > 0 && selectedIndex < filteredItems.length) {
           e.preventDefault();
           const selectedItem = filteredItems[selectedIndex];
@@ -361,7 +444,7 @@ export const SmartTaskInput = forwardRef<SmartTaskInputRef, SmartTaskInputProps>
         }
       }
     },
-    [trigger, externalOnKeyDown, filteredItems, selectedIndex]
+    [trigger, externalOnKeyDown, filteredItems, selectedIndex, defaultUserId, people, value, onChange, onPersonSelect, onDateSelect]
   );
 
   // Handle selection from dropdown
@@ -515,13 +598,13 @@ export const SmartTaskInput = forwardRef<SmartTaskInputRef, SmartTaskInputProps>
       )}
 
       <InlineDropdown
-        open={trigger !== null}
+        open={trigger !== null && trigger.type !== "date"}
         items={dropdownItems}
         searchValue={trigger?.searchText || ""}
         onSelect={handleSelect}
         onClose={handleCloseDropdown}
         position={dropdownPosition}
-        type={trigger?.type === "priority" ? "person" : (trigger?.type || "person")}
+        type={trigger?.type === "priority" || trigger?.type === "date" ? "person" : (trigger?.type || "person")}
         selectedIndex={selectedIndex}
         onSelectedIndexChange={setSelectedIndex}
       />

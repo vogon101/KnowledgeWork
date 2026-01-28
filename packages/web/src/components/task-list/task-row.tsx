@@ -14,7 +14,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import type { Task } from "@/lib/task-db";
 import { useRouter } from "next/navigation";
 import { formatDisplayDate, getPriorityBorderColor } from "@/lib/date-parser";
-import { TaskDetailModal } from "../task-detail-popover";
+import { useTaskModal } from "../task-modal-context";
 import { statusConfig, formatTargetPeriod } from "./config";
 import { useTaskMutations, type TaskStatus } from "./use-task-mutations";
 import { Badge, PriorityBadge, StatusBadge, OrgBadge } from "../ui/badge";
@@ -43,7 +43,7 @@ export function TaskRow({
   const [showActions, setShowActions] = useState(false);
   const [showNoteInput, setShowNoteInput] = useState(false);
   const [noteText, setNoteText] = useState("");
-  const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const { openTaskModal } = useTaskModal();
   const actionsRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
@@ -157,7 +157,7 @@ export function TaskRow({
 
     e.preventDefault();
     e.stopPropagation();
-    setDetailModalOpen(true);
+    openTaskModal(task.id, task.displayId);
   };
 
   return (
@@ -352,7 +352,7 @@ export function TaskRow({
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                setDetailModalOpen(true);
+                openTaskModal(task.id, task.displayId);
               }}
               className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-zinc-700 transition-opacity"
               title="View task details (or Alt+Click row)"
@@ -456,18 +456,6 @@ export function TaskRow({
           </button>
         </div>
       )}
-
-      {/* Task detail modal (opened via Alt+click or info button) */}
-      <TaskDetailModal
-        taskId={task.id}
-        displayId={task.displayId}
-        open={detailModalOpen}
-        onOpenChange={setDetailModalOpen}
-        onUpdate={() => {
-          handleRefresh();
-          onTaskUpdate?.();
-        }}
-      />
     </div>
   );
 }

@@ -53,7 +53,7 @@ pnpm --filter @kw/server gmail:auth
 # 4. Complete OAuth flow in browser
 ```
 
-See `skills/gmail/SKILL.md` for usage details.
+See `skills/google/SKILL.md` for usage details.
 
 ### AI Agent Skills
 

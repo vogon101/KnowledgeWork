@@ -1,11 +1,10 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { Calendar, ArrowRight, Bell } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { format, isTomorrow, parseISO, addDays, isToday } from "date-fns";
-import { TaskDetailModal } from "./task-detail-popover";
+import { useTaskModal } from "./task-modal-context";
 import { DEFAULT_OWNER_NAME } from "./task-list/config";
 
 function PriorityDot({ priority }: { priority: number | null | undefined }) {
@@ -44,73 +43,51 @@ interface CheckinItem {
 
 interface TaskRowProps {
   task: TaskItem;
-  onUpdate: () => void;
 }
 
-function TaskRow({ task, onUpdate }: TaskRowProps) {
-  const [modalOpen, setModalOpen] = useState(false);
+function TaskRow({ task }: TaskRowProps) {
+  const { openTaskModal } = useTaskModal();
 
   return (
-    <>
-      <button
-        onClick={() => setModalOpen(true)}
-        className="w-full flex items-center gap-2 py-1 px-1 -mx-1 rounded hover:bg-zinc-700/50 transition-colors group text-left"
-      >
-        <PriorityDot priority={task.priority} />
-        <span className="text-[12px] text-zinc-300 group-hover:text-zinc-100 truncate flex-1">
-          {task.title}
+    <button
+      onClick={() => openTaskModal(task.id, task.displayId)}
+      className="w-full flex items-center gap-2 py-1 px-1 -mx-1 rounded hover:bg-zinc-700/50 transition-colors group text-left"
+    >
+      <PriorityDot priority={task.priority} />
+      <span className="text-[12px] text-zinc-300 group-hover:text-zinc-100 truncate flex-1">
+        {task.title}
+      </span>
+      {task.projectName && (
+        <span className="text-[10px] text-zinc-600 truncate max-w-[60px]">
+          {task.projectName}
         </span>
-        {task.projectName && (
-          <span className="text-[10px] text-zinc-600 truncate max-w-[60px]">
-            {task.projectName}
-          </span>
-        )}
-      </button>
-      <TaskDetailModal
-        taskId={task.id}
-        displayId={task.displayId}
-        open={modalOpen}
-        onOpenChange={setModalOpen}
-        onUpdate={onUpdate}
-      />
-    </>
+      )}
+    </button>
   );
 }
 
 interface CheckinRowProps {
   checkin: CheckinItem;
-  onUpdate: () => void;
 }
 
-function CheckinRow({ checkin, onUpdate }: CheckinRowProps) {
-  const [modalOpen, setModalOpen] = useState(false);
+function CheckinRow({ checkin }: CheckinRowProps) {
+  const { openTaskModal } = useTaskModal();
 
   return (
-    <>
-      <button
-        onClick={() => setModalOpen(true)}
-        className="w-full flex items-center gap-2 py-1 px-1 -mx-1 rounded hover:bg-purple-500/10 transition-colors group text-left"
-      >
-        <Bell className="w-3 h-3 text-purple-400" />
-        <span className="text-[12px] text-zinc-400 group-hover:text-zinc-200 truncate flex-1">
-          {checkin.title}
-        </span>
-        <span className="text-[10px] text-purple-400">Check-in</span>
-      </button>
-      <TaskDetailModal
-        taskId={checkin.id}
-        displayId={checkin.displayId}
-        open={modalOpen}
-        onOpenChange={setModalOpen}
-        onUpdate={onUpdate}
-      />
-    </>
+    <button
+      onClick={() => openTaskModal(checkin.id, checkin.displayId)}
+      className="w-full flex items-center gap-2 py-1 px-1 -mx-1 rounded hover:bg-purple-500/10 transition-colors group text-left"
+    >
+      <Bell className="w-3 h-3 text-purple-400" />
+      <span className="text-[12px] text-zinc-400 group-hover:text-zinc-200 truncate flex-1">
+        {checkin.title}
+      </span>
+      <span className="text-[10px] text-purple-400">Check-in</span>
+    </button>
   );
 }
 
 export function WeeklyPlan() {
-  const utils = trpc.useUtils();
-
   // Get upcoming tasks (next 7 days, we'll filter out today)
   const upcomingQuery = trpc.query.upcoming.useQuery({ days: 7 });
 
@@ -119,11 +96,6 @@ export function WeeklyPlan() {
 
   const grouped = upcomingQuery.data?.grouped || [];
   const allCheckins = checkinsQuery.data || [];
-
-  const handleUpdate = () => {
-    utils.query.upcoming.invalidate();
-    utils.items.checkins.invalidate();
-  };
 
   // Filter out today from the grouped data and filter to my tasks only
   const filteredGrouped = grouped
@@ -247,7 +219,6 @@ export function WeeklyPlan() {
                 <TaskRow
                   key={task.id}
                   task={task}
-                  onUpdate={handleUpdate}
                 />
               ))}
               {/* Then check-ins */}
@@ -255,7 +226,6 @@ export function WeeklyPlan() {
                 <CheckinRow
                   key={`checkin-${checkin.id}-${checkin.checkinId}`}
                   checkin={checkin}
-                  onUpdate={handleUpdate}
                 />
               ))}
             </div>

@@ -16,7 +16,7 @@ model: opus
 permissionMode: default
 skills:
   - task-cli
-  - gmail
+  - google
   - dates
   - working-memory
   - meetings
@@ -55,7 +55,7 @@ Use Glob to find: `**/meetings/**/*.md` then grep for the person's name.
 
 ### 4. Search Gmail for Recent Correspondence
 ```bash
-.claude/skills/gmail/scripts/gmail-cli.sh search "from:X OR to:X" --limit 10
+.claude/skills/google/scripts/google-cli.sh gmail search "from:X OR to:X" --limit 10
 ```
 Get a sense of recent topics and tone.
 
@@ -69,7 +69,13 @@ Find open tasks involving or mentioning this person.
 Read `.claude/context/working-memory.md` and search for person mentions.
 
 ### 7. Read Project Context (if applicable)
-If a project is mentioned or implied, read the project README and next-steps.
+If a project is mentioned or implied:
+1. Read the project README and next-steps
+2. **Check gmail** for recent correspondence about the project:
+   ```bash
+   .claude/skills/google/scripts/google-cli.sh gmail search "subject:project-name newer_than:14d"
+   ```
+3. If the README is out of date based on email findings, **propose updating it**
 
 ## Output Format
 
@@ -113,10 +119,11 @@ Use AskUserQuestion to clarify:
 
 ## Key Constraints
 
-1. **Context first**: Always gather full context before presenting prep
-2. **Be comprehensive**: Check all sources (people DB, gmail, tasks, meetings, working memory)
-3. **Suggest talking points**: Don't just list facts, help user identify what to discuss
-4. **Include task IDs**: So user can easily reference or update tasks
+1. **PROPOSE changes, don't make them**: If emails suggest action items or task updates, present them and ask user to confirm before making changes.
+2. **Context first**: Always gather full context before presenting prep
+3. **Be comprehensive**: Check all sources (people DB, gmail, tasks, meetings, working memory)
+4. **Suggest talking points**: Don't just list facts, help user identify what to discuss
+5. **Include task IDs**: So user can easily reference or update tasks
 
 ## Date Context
 
@@ -129,13 +136,13 @@ Always get current date context:
 
 ```bash
 # Find contact email
-.claude/skills/gmail/scripts/gmail-cli.sh contacts "Name"
+.claude/skills/google/scripts/google-cli.sh contacts search "Name"
 
 # Search emails
-.claude/skills/gmail/scripts/gmail-cli.sh search "from:email OR to:email" --limit 10
+.claude/skills/google/scripts/google-cli.sh gmail search "from:email OR to:email" --limit 10
 
 # Get email content
-.claude/skills/gmail/scripts/gmail-cli.sh get MESSAGE_ID
+.claude/skills/google/scripts/google-cli.sh gmail get MESSAGE_ID
 ```
 
 ## Report Back to Working Memory

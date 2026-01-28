@@ -39,19 +39,19 @@ export function parseTaskInput(input: string): ParsedTaskInput {
   let dueDate: string | null = null;
   let priority: number | null = null;
 
-  // Extract priority (p1-p4 or !1-!4)
-  const priorityMatch = title.match(/\b(p[1-4]|![1-4])\b/i);
+  // Extract priority (p1-p4 only - !N is now reserved for dates)
+  const priorityMatch = title.match(/\bp[1-4]\b/i);
   if (priorityMatch) {
-    const pValue = priorityMatch[1].toLowerCase();
-    priority = parseInt(pValue.replace(/[p!]/, ''), 10);
+    const pValue = priorityMatch[0].toLowerCase();
+    priority = parseInt(pValue.replace('p', ''), 10);
     title = title.replace(priorityMatch[0], '').trim();
   }
 
-  // Try to extract date
-  const dateResult = extractDate(title);
-  if (dateResult.date) {
-    dueDate = dateResult.date;
-    title = dateResult.remainingText.trim();
+  // Try to extract explicit !date patterns first
+  const explicitDateResult = extractExplicitDate(title);
+  if (explicitDateResult.date) {
+    dueDate = explicitDateResult.date;
+    title = explicitDateResult.remainingText.trim();
   }
 
   // Clean up extra spaces
@@ -200,6 +200,95 @@ function extractDate(text: string): DateExtractionResult {
   }
 
   // No date found
+  return { date: null, remainingText: text };
+}
+
+/**
+ * Extract explicit !date patterns from text
+ * Supports: !today, !tod, !tomorrow, !tom, !monday, !mon, !jan15, !15jan, !2026-01-15
+ */
+function extractExplicitDate(text: string): DateExtractionResult {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const formatDate = (d: Date): string => d.toISOString().split('T')[0];
+
+  const getNextWeekday = (dayIndex: number): Date => {
+    const result = new Date(today);
+    const currentDay = today.getDay();
+    let daysToAdd = dayIndex - currentDay;
+    if (daysToAdd <= 0) {
+      daysToAdd += 7;
+    }
+    result.setDate(result.getDate() + daysToAdd);
+    return result;
+  };
+
+  // Pattern: !keyword (supports various date formats)
+  const explicitMatch = text.match(/(?:^|\s)!(\S+?)(?=\s|$)/);
+  if (!explicitMatch) {
+    return { date: null, remainingText: text };
+  }
+
+  const keyword = explicitMatch[1].toLowerCase();
+  let date: string | null = null;
+
+  // Check simple keywords
+  if (keyword === 'today' || keyword === 'tod') {
+    date = formatDate(today);
+  } else if (keyword === 'tomorrow' || keyword === 'tom') {
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    date = formatDate(tomorrow);
+  } else {
+    // Check weekdays
+    const dayIndex = DAYS_OF_WEEK.indexOf(keyword);
+    const shortDayIndex = dayIndex === -1 ? DAYS_SHORT.indexOf(keyword) : dayIndex;
+    if (shortDayIndex !== -1) {
+      date = formatDate(getNextWeekday(shortDayIndex));
+    }
+  }
+
+  // Check ISO format: 2026-01-15
+  if (!date && /^\d{4}-\d{2}-\d{2}$/.test(keyword)) {
+    date = keyword;
+  }
+
+  // Check month-day format: jan15, 15jan
+  if (!date) {
+    const monthDayMatch = keyword.match(/^(\d{1,2})(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)$/) ||
+      keyword.match(/^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)(\d{1,2})$/);
+
+    if (monthDayMatch) {
+      let monthStr: string;
+      let day: number;
+
+      if (isNaN(parseInt(monthDayMatch[1], 10))) {
+        monthStr = monthDayMatch[1];
+        day = parseInt(monthDayMatch[2], 10);
+      } else {
+        day = parseInt(monthDayMatch[1], 10);
+        monthStr = monthDayMatch[2];
+      }
+
+      const monthIndex = MONTHS_SHORT.indexOf(monthStr);
+      if (monthIndex !== -1 && day >= 1 && day <= 31) {
+        const result = new Date(today.getFullYear(), monthIndex, day);
+        if (result < today) {
+          result.setFullYear(result.getFullYear() + 1);
+        }
+        date = formatDate(result);
+      }
+    }
+  }
+
+  if (date) {
+    return {
+      date,
+      remainingText: text.replace(explicitMatch[0], explicitMatch[0].startsWith(' ') ? ' ' : ''),
+    };
+  }
+
   return { date: null, remainingText: text };
 }
 
