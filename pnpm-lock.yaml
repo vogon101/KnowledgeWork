@@ -279,7 +279,7 @@ importers:
         specifier: ^5
         version: 5.9.3
 
-  skills/gmail:
+  skills/google:
     dependencies:
       '@kw/api-types':
         specifier: workspace:*

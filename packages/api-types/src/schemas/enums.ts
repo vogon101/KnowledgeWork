@@ -11,8 +11,6 @@ export const ItemStatusSchema = z.enum([
   'blocked',
   'cancelled',
   'deferred',
-  'active',  // Workstream status
-  'paused',  // Workstream status
 ]);
 export type ItemStatus = z.infer<typeof ItemStatusSchema>;
 
@@ -26,8 +24,6 @@ export type TaskStatus = ItemStatus;
 
 export const ItemTypeSchema = z.enum([
   'task',
-  'workstream',
-  'goal',
   'routine',
 ]);
 export type ItemType = z.infer<typeof ItemTypeSchema>;

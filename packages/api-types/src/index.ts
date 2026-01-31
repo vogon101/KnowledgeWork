@@ -205,11 +205,13 @@ export {
   CalendarListSchema,
   CalendarEventListResponseSchema,
   CalendarStatusSchema,
+  CalendarInfoSchema,
   type CalendarAttendee,
   type CalendarEvent,
   type CalendarList,
   type CalendarEventListResponse,
   type CalendarStatus,
+  type CalendarInfo,
 } from './schemas/calendar.js';
 
 // =============================================================================

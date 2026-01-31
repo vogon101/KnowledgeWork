@@ -32,8 +32,18 @@ export const CalendarEventSchema = z.object({
   }).nullable().optional(),
   attendees: z.array(CalendarAttendeeSchema).default([]),
   recurringEventId: z.string().nullable().optional(),
+  calendarId: z.string().nullable().optional(),
+  calendarIds: z.array(z.string()).nullable().optional(), // populated when event appears on multiple calendars
 });
 export type CalendarEvent = z.infer<typeof CalendarEventSchema>;
+
+export const CalendarInfoSchema = z.object({
+  id: z.string(),
+  summary: z.string().nullable().optional(),
+  primary: z.boolean().optional(),
+  accessRole: z.string().nullable().optional(),
+});
+export type CalendarInfo = z.infer<typeof CalendarInfoSchema>;
 
 // =============================================================================
 // QUERY SCHEMAS
@@ -43,7 +53,7 @@ export const CalendarListSchema = z.object({
   timeMin: z.string().optional(), // ISO datetime
   timeMax: z.string().optional(),
   maxResults: z.number().min(1).max(250).optional().default(50),
-  calendarId: z.string().optional().default('primary'),
+  calendarId: z.string().optional(), // omit to query all configured calendars
   query: z.string().optional(),
 });
 export type CalendarList = z.infer<typeof CalendarListSchema>;

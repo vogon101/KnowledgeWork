@@ -45,7 +45,7 @@ export const ItemSchema = z.object({
   sourceType: z.string().nullable().optional(),
   sourcePath: z.string().nullable().optional(),
 
-  // File sync (for workstreams)
+  // File sync
   filePath: z.string().nullable().optional(),
   fileHash: z.string().nullable().optional(),
 
