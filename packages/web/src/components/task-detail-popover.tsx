@@ -25,6 +25,10 @@ import {
   Unlock,
   Plus,
   Link as LinkIcon,
+  ArrowRight,
+  PenLine,
+  FolderSync,
+  CircleDot,
 } from "lucide-react";
 import {
   Dialog,
@@ -51,6 +55,76 @@ import { MeetingLink } from "./meeting-link";
 import { Combobox } from "@/components/ui/combobox";
 import { trpc } from "@/lib/trpc";
 import { SmartTaskInput, type SmartTaskInputRef } from "@/components/smart-task-input";
+
+// Relative time formatting
+function formatRelativeTime(dateStr: string): string {
+  const now = new Date();
+  const date = new Date(dateStr);
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return "just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
+  return date.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+}
+
+// Get icon and color for activity type
+function getActivityIcon(updateType: string, newStatus?: string | null) {
+  switch (updateType) {
+    case "status_change":
+    case "status_changed":
+      return { Icon: ArrowRight, color: "text-blue-400", bg: "bg-blue-500/10" };
+    case "note":
+      return { Icon: MessageCircle, color: "text-zinc-400", bg: "bg-zinc-500/10" };
+    case "created":
+      return { Icon: CircleDot, color: "text-emerald-400", bg: "bg-emerald-500/10" };
+    case "priority_changed":
+      return { Icon: Flag, color: "text-orange-400", bg: "bg-orange-500/10" };
+    case "due_date_changed":
+      return { Icon: Calendar, color: "text-purple-400", bg: "bg-purple-500/10" };
+    case "title_changed":
+      return { Icon: PenLine, color: "text-zinc-400", bg: "bg-zinc-500/10" };
+    case "owner_changed":
+      return { Icon: User, color: "text-cyan-400", bg: "bg-cyan-500/10" };
+    case "project_changed":
+      return { Icon: FolderSync, color: "text-amber-400", bg: "bg-amber-500/10" };
+    case "blocked":
+      return { Icon: AlertCircle, color: "text-red-400", bg: "bg-red-500/10" };
+    case "unblocked":
+      return { Icon: Unlock, color: "text-green-400", bg: "bg-green-500/10" };
+    default:
+      return { Icon: Clock, color: "text-zinc-500", bg: "bg-zinc-500/10" };
+  }
+}
+
+// Format activity description for display
+function formatActivityDescription(update: TaskUpdate): string {
+  if (update.note) return update.note;
+  switch (update.updateType) {
+    case "status_change":
+    case "status_changed":
+      return `Status changed`;
+    case "created":
+      return "Task created";
+    case "priority_changed":
+      return "Priority updated";
+    case "due_date_changed":
+      return "Due date changed";
+    case "title_changed":
+      return "Title updated";
+    case "owner_changed":
+      return "Owner changed";
+    case "project_changed":
+      return "Project changed";
+    default:
+      return update.updateType;
+  }
+}
 
 // Blocker info for many-to-many blocking relationships
 interface BlockerInfo {
@@ -81,8 +155,6 @@ export interface TaskDetail {
   projectName: string | null;
   projectOrg: string | null;
   projectFullPath: string | null;
-  workstreamId: number | null;
-  workstreamName: string | null;
   sourceMeetingId: number | null;
   sourceMeetingTitle: string | null;
   sourceMeetingPath?: string | null;
@@ -140,8 +212,6 @@ export function transformTaskData(data: any): TaskDetail {
     projectName: data.projectName ?? null,
     projectOrg: data.projectOrg ?? null,
     projectFullPath: data.projectFullPath ?? null,
-    workstreamId: null,
-    workstreamName: null,
     sourceMeetingId: data.sourceMeetingId ?? null,
     sourceMeetingTitle: data.sourceMeetingTitle ?? null,
     sourceMeetingPath: data.sourceMeetingPath ?? null,
@@ -671,7 +741,7 @@ export function TaskDetailContent({ task, onClose, onUpdate, onRefetchTask }: Ta
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
-        {activeTab === "details" && <DetailsTab task={task} onUpdate={onUpdate} onRefetchTask={onRefetchTask} />}
+        {activeTab === "details" && <DetailsTab task={task} onUpdate={onUpdate} onRefetchTask={onRefetchTask} onSwitchToActivity={() => setActiveTab("activity")} />}
         {activeTab === "edit" && <EditTab task={task} onClose={onClose} onUpdate={onUpdate} onRefetchTask={onRefetchTask} />}
         {activeTab === "activity" && <ActivityTab task={task} onUpdate={onUpdate} />}
       </div>
@@ -680,7 +750,7 @@ export function TaskDetailContent({ task, onClose, onUpdate, onRefetchTask }: Ta
 }
 
 // Details Tab
-function DetailsTab({ task, onUpdate, onRefetchTask }: { task: TaskDetail; onUpdate: () => void; onRefetchTask: () => void }) {
+function DetailsTab({ task, onUpdate, onRefetchTask, onSwitchToActivity }: { task: TaskDetail; onUpdate: () => void; onRefetchTask: () => void; onSwitchToActivity: () => void }) {
   const [showSubtasks, setShowSubtasks] = useState(true);
   const [showRelated, setShowRelated] = useState(false);
   const [showBlocking, setShowBlocking] = useState(true);
@@ -1179,6 +1249,9 @@ function DetailsTab({ task, onUpdate, onRefetchTask }: { task: TaskDetail; onUpd
           )}
         </div>
       )}
+
+      {/* Recent Activity */}
+      <RecentActivity task={task} onSwitchToActivity={onSwitchToActivity} />
 
       {/* Timestamps */}
       <div className="border-t border-zinc-800 pt-3 text-[10px] text-zinc-600">
@@ -1831,6 +1904,77 @@ function EditTab({
   );
 }
 
+// Single activity entry component (shared between ActivityTab and RecentActivity)
+function ActivityEntry({ update, compact = false }: { update: TaskUpdate; compact?: boolean }) {
+  const { Icon, color, bg } = getActivityIcon(update.updateType, update.newStatus);
+  const description = formatActivityDescription(update);
+  const isStatusChange = update.updateType === "status_change" || update.updateType === "status_changed";
+
+  return (
+    <div className={`flex gap-2.5 ${compact ? "" : "py-1"}`}>
+      <div className={`flex-shrink-0 mt-0.5 p-1 rounded ${bg}`}>
+        <Icon className={`h-3 w-3 ${color}`} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-baseline justify-between gap-2">
+          <p className={`${compact ? "text-[11px]" : "text-[12px]"} text-zinc-300 leading-snug`}>
+            {description}
+          </p>
+          <span className={`flex-shrink-0 ${compact ? "text-[9px]" : "text-[10px]"} text-zinc-600`} title={new Date(update.createdAt).toLocaleString()}>
+            {formatRelativeTime(update.createdAt)}
+          </span>
+        </div>
+        {isStatusChange && update.oldStatus && update.newStatus && (
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <StatusBadge status={update.oldStatus} />
+            <ArrowRight className="h-2.5 w-2.5 text-zinc-600" />
+            <StatusBadge status={update.newStatus} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Recent Activity summary for the Details tab
+// Shows all notes/comments plus the last 3 non-note updates
+function RecentActivity({ task, onSwitchToActivity }: { task: TaskDetail; onSwitchToActivity: () => void }) {
+  const updates = task.updates || [];
+  if (updates.length === 0) return null;
+
+  const notes = updates.filter(u => u.updateType === "note");
+  const nonNotes = updates.filter(u => u.updateType !== "note");
+  const recentNonNotes = nonNotes.slice(0, 3);
+
+  // Merge and sort by createdAt descending
+  const shown = [...notes, ...recentNonNotes].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+
+  const hiddenCount = updates.length - shown.length;
+
+  return (
+    <div className="border-t border-zinc-800 pt-3">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-[10px] text-zinc-500 uppercase tracking-wider">Recent Activity</span>
+        {hiddenCount > 0 && (
+          <button
+            onClick={onSwitchToActivity}
+            className="text-[10px] text-blue-400 hover:text-blue-300"
+          >
+            +{hiddenCount} more
+          </button>
+        )}
+      </div>
+      <div className="space-y-1.5">
+        {shown.map((update) => (
+          <ActivityEntry key={update.id} update={update} compact />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // Activity Tab
 function ActivityTab({ task, onUpdate }: { task: TaskDetail; onUpdate: () => void }) {
   const [noteText, setNoteText] = useState("");
@@ -1855,55 +1999,67 @@ function ActivityTab({ task, onUpdate }: { task: TaskDetail; onUpdate: () => voi
 
   const updates = task.updates || [];
 
+  // Group updates by date
+  const grouped = updates.reduce<Record<string, TaskUpdate[]>>((acc, update) => {
+    const date = new Date(update.createdAt);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    let key: string;
+    if (date.toDateString() === today.toDateString()) {
+      key = "Today";
+    } else if (date.toDateString() === yesterday.toDateString()) {
+      key = "Yesterday";
+    } else {
+      key = date.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+    }
+
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(update);
+    return acc;
+  }, {});
+
   return (
     <div className="p-4">
       {/* Add note */}
       <div className="mb-4">
         <div className="flex gap-2">
-          <input
-            type="text"
+          <textarea
             value={noteText}
             onChange={(e) => setNoteText(e.target.value)}
             placeholder="Add a note..."
-            className="flex-1 px-2 py-1.5 text-[12px] bg-zinc-800 border border-zinc-700 rounded text-zinc-200 placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            rows={2}
+            className="flex-1 px-2 py-1.5 text-[12px] bg-zinc-800 border border-zinc-700 rounded text-zinc-200 placeholder:text-zinc-500 resize-none focus:outline-none focus:ring-1 focus:ring-blue-500"
             onKeyDown={(e) => {
-              if (e.key === "Enter") handleAddNote();
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleAddNote();
             }}
           />
           <button
             onClick={handleAddNote}
             disabled={addingNote || !noteText.trim()}
-            className="px-3 py-1.5 text-[11px] bg-blue-600 hover:bg-blue-500 text-white rounded disabled:opacity-50"
+            className="px-3 self-end py-1.5 text-[11px] bg-blue-600 hover:bg-blue-500 text-white rounded disabled:opacity-50"
           >
             {addingNote ? <Loader2 className="h-3 w-3 animate-spin" /> : "Add"}
           </button>
         </div>
+        <p className="text-[9px] text-zinc-600 mt-1">Cmd+Enter to submit</p>
       </div>
 
-      {/* Activity log */}
+      {/* Activity log grouped by date */}
       {updates.length === 0 ? (
         <p className="text-[12px] text-zinc-500 italic text-center py-4">No activity yet</p>
       ) : (
-        <div className="space-y-3">
-          {updates.map((update) => (
-            <div key={update.id} className="flex gap-2">
-              <div className="flex-shrink-0 mt-0.5">
-                {update.updateType === "status_change" ? (
-                  <StatusIcon status={update.newStatus || "pending"} size={14} />
-                ) : (
-                  <MessageCircle className="h-3.5 w-3.5 text-zinc-500" />
-                )}
+        <div className="space-y-4">
+          {Object.entries(grouped).map(([dateLabel, dateUpdates]) => (
+            <div key={dateLabel}>
+              <div className="text-[9px] text-zinc-600 uppercase tracking-wider mb-2 font-medium">
+                {dateLabel}
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[12px] text-zinc-300">{update.note}</p>
-                {update.updateType === "status_change" && (
-                  <p className="text-[10px] text-zinc-500">
-                    {update.oldStatus} → {update.newStatus}
-                  </p>
-                )}
-                <p className="text-[10px] text-zinc-600 mt-0.5">
-                  {new Date(update.createdAt).toLocaleString()}
-                </p>
+              <div className="space-y-2 border-l border-zinc-800 pl-3 ml-1">
+                {dateUpdates.map((update) => (
+                  <ActivityEntry key={update.id} update={update} />
+                ))}
               </div>
             </div>
           ))}

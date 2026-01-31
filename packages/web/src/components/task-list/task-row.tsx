@@ -305,20 +305,14 @@ export function TaskRow({
 
             {/* Project - org badge + project path (hide path for general projects) */}
             {showProject && task.projectSlug && (
-              <span className="inline-flex items-center gap-1">
-                <OrgBadge
-                  org={task.projectOrg || "other"}
-                  color={task.projectOrgColor}
-                  shortName={task.projectOrgShortName}
-                  size="md"
-                />
-                {/* Only show project path if NOT a general project */}
-                {!task.projectIsGeneral && (
-                  <span className="text-[10px] text-zinc-400">
-                    {task.projectFullPath || task.projectSlug}
-                  </span>
-                )}
-              </span>
+              <OrgBadge
+                org={task.projectOrg || "other"}
+                color={task.projectOrgColor}
+                shortName={!task.projectIsGeneral
+                  ? `${task.projectOrgShortName || task.projectOrg}/${task.projectFullPath || task.projectSlug}`
+                  : task.projectOrgShortName}
+                size="md"
+              />
             )}
 
             {/* Source meeting */}

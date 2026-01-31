@@ -32,7 +32,10 @@ export default function EditProjectPage() {
 
   // Build the file path - we'll try multiple patterns
   const possiblePaths = isWorkstream
-    ? [`${org}/projects/${projectSlug}/${workstreamSlug}.md`]
+    ? [
+        `${org}/projects/${projectSlug}/${workstreamSlug}/README.md`,
+        `${org}/projects/${projectSlug}/${workstreamSlug}.md`,
+      ]
     : [
         `${org}/projects/${projectSlug}/README.md`,
         `${org}/projects/${projectSlug}.md`,

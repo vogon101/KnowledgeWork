@@ -14,6 +14,7 @@ import { GlobalAddTask } from "@/components/global-add-task";
 import { ToastProvider } from "@/components/toast";
 import { TRPCProvider } from "@/components/trpc-provider";
 import { TaskModalProvider } from "@/components/task-modal-context";
+import { MainContent } from "@/components/main-content";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -53,9 +54,7 @@ export default function RootLayout({
                       <AIContentNotifier />
                       <Toaster position="bottom-right" />
                       <Sidebar />
-                      <main className="ml-52 bg-zinc-900">
-                        {children}
-                      </main>
+                      <MainContent>{children}</MainContent>
                       <GlobalAddTask />
                       <QuickNotes />
                     </TaskModalProvider>

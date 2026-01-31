@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, createContext, useContext, useRef } from "react";
+import { useState, useEffect, useCallback, createContext, useContext, useRef, useSyncExternalStore } from "react";
 import dynamic from "next/dynamic";
 import { X, Terminal as TerminalIcon, Play, Trash2 } from "lucide-react";
 
@@ -12,7 +12,17 @@ interface TerminalContextType {
   close: () => void;
   focus: () => void;
   width: number;
+  setWidth: (width: number) => void;
   sendPrompt: (prompt: string, context?: { type: string; title?: string }) => void;
+  promptToSend: { prompt: string; context?: { type: string; title?: string } } | null;
+  clearPrompt: () => void;
+  layoutMode: "split" | "tabbed";
+  setLayoutMode: (mode: "split" | "tabbed") => void;
+  activeTab: "web" | "terminal";
+  setActiveTab: (tab: "web" | "terminal") => void;
+  showWebUI: () => void;
+  sidebarCollapsed: boolean;
+  setSidebarCollapsed: (collapsed: boolean) => void;
 }
 
 const TerminalContext = createContext<TerminalContextType | null>(null);
@@ -63,7 +73,17 @@ export function useTerminal() {
       close: () => {},
       focus: () => {},
       width: 0,
+      setWidth: () => {},
       sendPrompt: () => {},
+      promptToSend: null,
+      clearPrompt: () => {},
+      layoutMode: "split" as const,
+      setLayoutMode: () => {},
+      activeTab: "web" as const,
+      setActiveTab: () => {},
+      showWebUI: () => {},
+      sidebarCollapsed: false,
+      setSidebarCollapsed: () => {},
     };
   }
   return ctx;
@@ -97,7 +117,7 @@ const MIN_WIDTH = 400;
 const MAX_WIDTH_PERCENT = 0.7; // 70% of screen max
 const DEFAULT_WIDTH_PERCENT = 0.4; // 40% of screen (2/5)
 
-export function TerminalSidebar({ isOpen, onClose, width, onWidthChange, pendingPrompt, onPromptConsumed }: TerminalSidebarProps) {
+export function TerminalSidebar({ isOpen, onClose, width, onWidthChange, pendingPrompt, onPromptConsumed, fillContainer }: TerminalSidebarProps & { fillContainer?: boolean }) {
   // Use a stable key that doesn't change on re-renders
   const [mountKey] = useState(() => Date.now());
   const [autoStart, setAutoStart] = useState(false);
@@ -168,14 +188,16 @@ export function TerminalSidebar({ isOpen, onClose, width, onWidthChange, pending
 
   return (
     <div
-      className="h-screen bg-zinc-950 border-l border-zinc-800 flex flex-col flex-shrink-0 relative"
-      style={{ width: `${width}px` }}
+      className={`h-screen bg-zinc-950 ${fillContainer ? "" : "border-l border-zinc-800"} flex flex-col flex-shrink-0 relative`}
+      style={fillContainer ? undefined : { width: `${width}px` }}
     >
-      {/* Resize handle */}
-      <div
-        className="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-blue-500/30 transition-colors z-10 -ml-1"
-        onMouseDown={() => setIsResizing(true)}
-      />
+      {/* Resize handle (split mode only) */}
+      {!fillContainer && (
+        <div
+          className="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-blue-500/30 transition-colors z-10 -ml-1"
+          onMouseDown={() => setIsResizing(true)}
+        />
+      )}
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-800 bg-zinc-900">
         <div className="flex items-center gap-2">
@@ -240,7 +262,21 @@ export function TerminalSidebar({ isOpen, onClose, width, onWidthChange, pending
 
 const STORAGE_KEY = "terminal-sidebar-open";
 const WIDTH_STORAGE_KEY = "terminal-sidebar-width";
+const SIDEBAR_COLLAPSED_KEY = "sidebar-collapsed";
 const DEFAULT_WIDTH = 600;
+const LAYOUT_BREAKPOINT = 1600;
+
+// Reactive window width using useSyncExternalStore
+function subscribeToWindowWidth(callback: () => void) {
+  window.addEventListener("resize", callback);
+  return () => window.removeEventListener("resize", callback);
+}
+function getWindowWidth() {
+  return window.innerWidth;
+}
+function getServerWidth() {
+  return 1920; // SSR default — assume wide
+}
 
 // Provider component to manage terminal state globally
 export function TerminalProvider({ children }: { children: React.ReactNode }) {
@@ -250,10 +286,21 @@ export function TerminalProvider({ children }: { children: React.ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
   const [promptToSend, setPromptToSend] = useState<{ prompt: string; context?: { type: string; title?: string } } | null>(null);
 
+  // Layout mode: split vs tabbed
+  const windowWidth = useSyncExternalStore(subscribeToWindowWidth, getWindowWidth, getServerWidth);
+  const autoLayoutMode: "split" | "tabbed" = windowWidth <= LAYOUT_BREAKPOINT ? "tabbed" : "split";
+  const [manualLayoutMode, setManualLayoutMode] = useState<"split" | "tabbed" | null>(null);
+  const layoutMode = manualLayoutMode ?? autoLayoutMode;
+  const [activeTab, setActiveTab] = useState<"web" | "terminal">("web");
+
+  // Sidebar collapsed state
+  const [sidebarCollapsed, setSidebarCollapsedState] = useState(false);
+
   // Load from localStorage after hydration
   useEffect(() => {
     const storedOpen = localStorage.getItem(STORAGE_KEY);
     const storedWidth = localStorage.getItem(WIDTH_STORAGE_KEY);
+    const storedCollapsed = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
 
     if (storedOpen !== null) {
       setIsOpen(storedOpen === "true");
@@ -263,7 +310,24 @@ export function TerminalProvider({ children }: { children: React.ReactNode }) {
     } else {
       setWidth(window.innerWidth * DEFAULT_WIDTH_PERCENT);
     }
+    if (storedCollapsed !== null) {
+      setSidebarCollapsedState(storedCollapsed === "true");
+    }
+
     setHydrated(true);
+  }, []);
+
+  const setLayoutMode = useCallback((mode: "split" | "tabbed") => {
+    setManualLayoutMode(mode);
+  }, []);
+
+  const setSidebarCollapsed = useCallback((collapsed: boolean) => {
+    setSidebarCollapsedState(collapsed);
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(collapsed));
+  }, []);
+
+  const showWebUI = useCallback(() => {
+    setActiveTab("web");
   }, []);
 
   // Persist open state
@@ -294,6 +358,8 @@ export function TerminalProvider({ children }: { children: React.ReactNode }) {
     setIsOpen(true);
     // Set the prompt to send
     setPromptToSend({ prompt, context });
+    // In tabbed mode, switch to terminal tab
+    setActiveTab("terminal");
     // Focus the terminal after a brief delay
     setTimeout(() => {
       if (focusTerminalFn) {
@@ -311,29 +377,36 @@ export function TerminalProvider({ children }: { children: React.ReactNode }) {
     const handleKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key === "\\") {
         event.preventDefault();
-        toggle();
+        if (layoutMode === "tabbed") {
+          if (!isOpen) {
+            setIsOpen(true);
+            setActiveTab("terminal");
+          } else {
+            setActiveTab((prev) => (prev === "web" ? "terminal" : "web"));
+          }
+        } else {
+          // Split mode: toggle terminal open/closed
+          setIsOpen((prev) => !prev);
+        }
       }
     };
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [toggle]);
+  }, [layoutMode, isOpen]);
+
+  const contextValue: TerminalContextType = {
+    isOpen, toggle, open, close, focus, width, setWidth, sendPrompt,
+    promptToSend, clearPrompt,
+    layoutMode, setLayoutMode,
+    activeTab, setActiveTab,
+    showWebUI,
+    sidebarCollapsed, setSidebarCollapsed,
+  };
 
   return (
-    <TerminalContext.Provider value={{ isOpen, toggle, open, close, focus, width, sendPrompt }}>
-      <div className="flex h-screen overflow-hidden">
-        <div className="flex-1 flex flex-col min-w-0 overflow-auto">
-          {children}
-        </div>
-        <TerminalSidebar
-          isOpen={isOpen}
-          onClose={close}
-          width={width}
-          onWidthChange={setWidth}
-          pendingPrompt={promptToSend}
-          onPromptConsumed={clearPrompt}
-        />
-      </div>
+    <TerminalContext.Provider value={contextValue}>
+      {children}
     </TerminalContext.Provider>
   );
 }

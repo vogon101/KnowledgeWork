@@ -3,11 +3,11 @@
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
-import { Search, Calendar, FolderKanban, Users, FileText, Loader2, X, Filter, CheckSquare, Circle, CheckCircle2, AlertCircle, Clock } from "lucide-react";
+import { Search, Calendar, FolderKanban, Users, FileText, Loader2, X, Filter, CheckSquare, Circle, CheckCircle2, AlertCircle, Clock, GitBranch } from "lucide-react";
 import Link from "next/link";
 
 interface SearchResult {
-  type: "diary" | "project" | "meeting" | "task" | "file";
+  type: "diary" | "project" | "meeting" | "task" | "file" | "workstream";
   title: string;
   href: string;
   snippet?: string;
@@ -104,17 +104,19 @@ function SearchContent() {
     }
   };
 
-  const typeIcons = {
+  const typeIcons: Record<string, typeof Calendar> = {
     diary: Calendar,
     project: FolderKanban,
+    workstream: GitBranch,
     meeting: Users,
     task: CheckSquare,
     file: FileText,
   };
 
-  const typeColors = {
+  const typeColors: Record<string, string> = {
     diary: "text-blue-400",
     project: "text-emerald-400",
+    workstream: "text-violet-400",
     meeting: "text-purple-400",
     task: "text-amber-400",
     file: "text-zinc-400",

@@ -48,7 +48,7 @@ export function SyncConfirmationModal({
   };
 
   const preview = previewQuery.data;
-  const hasChanges = preview && preview.workstreams.count > 0;
+  const hasChanges = preview && preview.projects.count > 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -88,7 +88,7 @@ export function SyncConfirmationModal({
                   <CheckCircle className="h-8 w-8 mx-auto text-emerald-400 mb-2" />
                   <p className="text-zinc-300">Everything is up to date!</p>
                   <p className="text-[12px] text-zinc-500 mt-1">
-                    No workstream files to sync.
+                    No projects to sync.
                   </p>
                 </div>
               ) : (
@@ -98,11 +98,11 @@ export function SyncConfirmationModal({
                     <div className="p-3 rounded-lg bg-zinc-800/50 border border-zinc-700">
                       <div className="flex items-center gap-2 mb-1">
                         <FolderPlus className="h-4 w-4 text-blue-400" />
-                        <span className="text-[11px] text-zinc-500 uppercase">Workstreams</span>
+                        <span className="text-[11px] text-zinc-500 uppercase">Projects</span>
                       </div>
                       <div className="text-xl font-semibold text-zinc-200">
-                        {preview.workstreams.count}
-                        <span className="text-[12px] text-zinc-500 font-normal ml-1">files</span>
+                        {preview.projects.count}
+                        <span className="text-[12px] text-zinc-500 font-normal ml-1">found</span>
                       </div>
                     </div>
                     <div className="p-3 rounded-lg bg-zinc-800/50 border border-zinc-700">
@@ -118,7 +118,7 @@ export function SyncConfirmationModal({
                   </div>
 
                   <p className="text-[12px] text-zinc-500">
-                    This will sync workstream files from the filesystem to the database.
+                    This will sync projects (including workstreams) from the filesystem to the database.
                     Meeting sync is done individually via the web interface.
                   </p>
                 </>

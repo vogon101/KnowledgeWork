@@ -4,6 +4,7 @@ import Link from "next/link";
 import { trpc } from "@/lib/trpc";
 import { ArrowRight } from "lucide-react";
 import {
+  Badge,
   OrgBadge,
   PriorityBadge,
   TodayBadge,
@@ -38,6 +39,8 @@ interface ProjectWithStats {
   checkinsThisWeek: number;
   organizationColor?: "indigo" | "teal" | "rose" | "orange" | null;
   organizationShortName?: string | null;
+  parentSlug?: string | null;
+  parentName?: string | null;
 }
 
 export function ProjectProgressCard({ project }: { project: ProjectWithStats }) {
@@ -56,6 +59,9 @@ export function ProjectProgressCard({ project }: { project: ProjectWithStats }) 
       {/* Single row layout */}
       <div className="flex items-center gap-2">
         <OrgBadge org={project.org} color={project.organizationColor} shortName={project.organizationShortName} size="sm" />
+        {project.parentSlug && (
+          <Badge variant="default" size="sm">{project.parentName || project.parentSlug}</Badge>
+        )}
         <span className="text-[12px] font-medium text-zinc-200 group-hover:text-zinc-100 truncate min-w-0 flex-1">
           {project.name}
         </span>

@@ -7,6 +7,7 @@ import {
   Activity,
   Building2,
   Settings,
+  GitBranch,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useOrganizations, getOrgColorClasses, type Organization } from "@/lib/organizations";
@@ -88,6 +89,9 @@ function ProjectCard({ project, isChild = false }: { project: ProjectWithStats; 
         <span className="text-[12px] font-medium text-zinc-200 group-hover:text-zinc-100 truncate min-w-0 flex-1">
           {project.name}
         </span>
+        {project.parentSlug && (
+          <GitBranch className="h-3 w-3 text-zinc-500 flex-shrink-0" />
+        )}
         <PriorityBadge priority={project.priority} size="sm" />
         {/* Badges */}
         <div className="flex items-center gap-1.5 flex-shrink-0">

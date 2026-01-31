@@ -542,105 +542,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Search workstreams (items with itemType='workstream')
-    if (!field || field === "workstream" || field === "project") {
-      try {
-        const wsResponse = await fetch(
-          `http://localhost:3004/api/trpc/items.list?input=${encodeURIComponent(JSON.stringify({
-            json: {
-              itemType: "workstream",
-              limit: 100
-            }
-          }))}`,
-          { cache: "no-store" }
-        );
-        if (wsResponse.ok) {
-          const wsData = await wsResponse.json();
-          const workstreams = wsData.result?.data?.json?.items || [];
-
-          for (const ws of workstreams) {
-            const titleLower = (ws.title || "").toLowerCase();
-            const descLower = (ws.description || "").toLowerCase();
-            const projectSlugLower = (ws.projectSlug || "").toLowerCase();
-
-            let score = 0;
-            let matchType: "title" | "content" | "field" = "content";
-            let matchField: string | undefined;
-
-            if (field === "workstream") {
-              if (titleLower.includes(query)) {
-                score = 100;
-                matchType = "field";
-                matchField = "workstream";
-              }
-            } else if (field === "project") {
-              if (projectSlugLower.includes(query)) {
-                score = 80;
-                matchType = "field";
-                matchField = "project";
-              }
-            } else {
-              // General search
-              if (titleLower.includes(query)) {
-                score += 80;
-                matchType = "title";
-                if (titleLower === query) score += 30;
-                if (titleLower.startsWith(query)) score += 15;
-              }
-              if (descLower.includes(query)) {
-                score += 30;
-              }
-              if (projectSlugLower.includes(query)) {
-                score += 20;
-              }
-
-              // Status bonus
-              if (ws.status === "active") score += 10;
-              else if (ws.status === "in_progress") score += 8;
-            }
-
-            if (score > 0) {
-              // Build href from file_path if available
-              // file_path like "example-org/projects/energy/analytics-dashboard.md"
-              // should become "/projects/example-org/energy/analytics-dashboard"
-              let href = `/tasks/${ws.id}`;
-              if (ws.filePath) {
-                // Parse: {org}/projects/{path}.md -> /projects/{org}/{path}
-                const match = ws.filePath.match(/^([^/]+)\/projects\/(.+)\.md$/);
-                if (match) {
-                  href = `/projects/${match[1]}/${match[2]}`;
-                }
-              } else if (ws.sourcePath) {
-                // Fallback to source path (parent project README)
-                const match = ws.sourcePath.match(/^([^/]+)\/projects\/(.+)\/README\.md$/);
-                if (match) {
-                  href = `/projects/${match[1]}/${match[2]}`;
-                }
-              } else if (ws.projectSlug && ws.projectOrg) {
-                href = `/projects/${ws.projectOrg}/${ws.projectSlug}`;
-              }
-
-              results.push({
-                type: "workstream",
-                title: ws.title,
-                href,
-                snippet: ws.description?.slice(0, 120) || (ws.projectName ? `In: ${ws.projectName}` : undefined),
-                org: ws.projectOrg || undefined,
-                matchType,
-                matchField,
-                score,
-                taskId: ws.displayId,
-                taskStatus: ws.status,
-                projectSlug: ws.projectSlug || undefined,
-                projectOrg: ws.projectOrg || undefined,
-              });
-            }
-          }
-        }
-      } catch (error) {
-        console.error("Workstream search error:", error);
-      }
-    }
+    // Workstream search is handled via project search above (workstreams are child projects)
 
     // Search files by name (general queries only, exclude READMEs and workstreams)
     if (!field) {
@@ -679,7 +581,7 @@ export async function GET(request: NextRequest) {
             if (score > 0) {
               // Determine href based on file type
               const extension = file.entry?.extension || "";
-              let href = `/files/${filePath}`;
+              let href = `/browse/${filePath}`;
 
               // For markdown files, check if they're in a viewable location
               if (extension === ".md") {
