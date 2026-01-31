@@ -136,7 +136,7 @@ describe('Type Consistency', () => {
 
   describe('Field type consistency', () => {
     it('status field should accept valid statuses', () => {
-      const validStatuses = ['pending', 'in_progress', 'complete', 'blocked', 'cancelled', 'deferred', 'active', 'paused'];
+      const validStatuses = ['pending', 'in_progress', 'complete', 'blocked', 'cancelled', 'deferred'];
 
       for (const status of validStatuses) {
         const item = {
@@ -155,7 +155,7 @@ describe('Type Consistency', () => {
     });
 
     it('itemType field should accept valid types', () => {
-      const validTypes = ['task', 'workstream', 'goal', 'routine'];
+      const validTypes = ['task', 'routine'];
 
       for (const itemType of validTypes) {
         const item = {

@@ -151,18 +151,46 @@ export function scanProjects(): ProjectInfo[] {
               isSubProject: false,
             });
 
-            // Scan for sub-projects (files with type: sub-project)
+            // Scan for sub-projects/workstreams (files with type: sub-project or workstream)
             const folderEntries = fs.readdirSync(fullPath);
             for (const subEntry of folderEntries) {
+              const subPath = path.join(fullPath, subEntry);
+              const subStat = fs.statSync(subPath);
+
+              if (subStat.isDirectory()) {
+                // Folder-based workstream: subdirectory with README.md containing type: workstream
+                const subReadme = path.join(subPath, 'README.md');
+                if (fs.existsSync(subReadme)) {
+                  try {
+                    const subContent = fs.readFileSync(subReadme, 'utf-8');
+                    const subFrontmatter = parseFrontmatter(subContent);
+
+                    if (subFrontmatter.type === 'workstream' || subFrontmatter.type === 'sub-project') {
+                      projects.push({
+                        slug: subEntry,
+                        name: extractProjectName(subContent, subEntry),
+                        org: dbOrg,
+                        status: normalizeStatus(subFrontmatter.status as string | undefined),
+                        priority: normalizePriority(subFrontmatter.priority as number | undefined),
+                        isSubProject: true,
+                        parentSlug: entry,
+                      });
+                    }
+                  } catch {
+                    // Skip unreadable
+                  }
+                }
+                continue;
+              }
+
               if (subEntry === 'README.md' || subEntry === 'next-steps.md') continue;
               if (!subEntry.endsWith('.md')) continue;
 
-              const subPath = path.join(fullPath, subEntry);
               try {
                 const subContent = fs.readFileSync(subPath, 'utf-8');
                 const subFrontmatter = parseFrontmatter(subContent);
 
-                if (subFrontmatter.type === 'sub-project') {
+                if (subFrontmatter.type === 'sub-project' || subFrontmatter.type === 'workstream') {
                   const subSlug = subEntry.replace(/\.md$/, '');
                   projects.push({
                     slug: subSlug,
@@ -283,9 +311,13 @@ export async function syncProjects(): Promise<SyncResult> {
           parentId = parent?.id || null;
         }
 
-        // Filter by organization relation, not legacy org column
+        // Filter by organization relation and parent, not legacy org column
         const existing = await tx.project.findFirst({
-          where: { slug: project.slug, organization: project.org ? { slug: project.org } : undefined },
+          where: {
+            slug: project.slug,
+            organization: project.org ? { slug: project.org } : undefined,
+            parentId: parentId,
+          },
           select: { id: true, name: true, status: true },
         });
 

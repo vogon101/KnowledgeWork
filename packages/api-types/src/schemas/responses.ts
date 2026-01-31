@@ -74,7 +74,10 @@ export const ItemQuerySchema = z.object({
   // Pagination
   limit: z.number().min(1).max(1000).optional(),
   offset: z.number().min(0).optional(),
-});
+}).refine(
+  (d) => !d.projectSlug || d.orgSlug,
+  { message: "orgSlug required when filtering by project" }
+);
 export type ItemQuery = z.infer<typeof ItemQuerySchema>;
 
 // Alias for backwards compatibility

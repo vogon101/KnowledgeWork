@@ -112,7 +112,8 @@ describe('tRPC Projects Router', () => {
       }
 
       const projectSlug = listResult.projects[0].slug;
-      const project = await caller.projects.get({ slug: projectSlug });
+      const projectOrg = listResult.projects[0].org;
+      const project = await caller.projects.get({ slug: projectSlug, org: projectOrg });
 
       expect(project.slug).toBe(projectSlug);
       expect(project).toHaveProperty('name');
@@ -124,7 +125,7 @@ describe('tRPC Projects Router', () => {
 
       if (listResult.projects.length === 0) return;
 
-      const project = await caller.projects.get({ slug: listResult.projects[0].slug });
+      const project = await caller.projects.get({ slug: listResult.projects[0].slug, org: listResult.projects[0].org });
 
       expect(project).toHaveProperty('children');
       expect(Array.isArray(project.children)).toBe(true);
@@ -135,7 +136,7 @@ describe('tRPC Projects Router', () => {
 
       if (listResult.projects.length === 0) return;
 
-      const project = await caller.projects.get({ slug: listResult.projects[0].slug });
+      const project = await caller.projects.get({ slug: listResult.projects[0].slug, org: listResult.projects[0].org });
 
       expect(project.taskStats).toHaveProperty('total');
       expect(project.taskStats).toHaveProperty('pending');
@@ -160,7 +161,7 @@ describe('tRPC Projects Router', () => {
 
     it('should throw NOT_FOUND for non-existent project', async () => {
       await expect(
-        caller.projects.get({ slug: 'non-existent-project-xyz' })
+        caller.projects.get({ slug: 'non-existent-project-xyz', org: 'other' })
       ).rejects.toThrow(/not found/i);
     });
   });

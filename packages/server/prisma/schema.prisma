@@ -103,14 +103,14 @@ model Project {
   items           Item[]
   meetingProjects MeetingProject[]
 
-  @@unique([slug, orgId]) // Slug is unique within an org, allowing same slug in different orgs
+  @@unique([slug, orgId, parentId]) // Slug is unique within an org+parent, allowing same slug under different parents
   @@index([orgId])
   @@index([status])
   @@map("projects")
 }
 
 // =============================================================================
-// ITEMS (Unified: tasks, goals, workstreams within projects)
+// ITEMS (tasks and routines within projects)
 // =============================================================================
 
 model Item {
@@ -118,10 +118,10 @@ model Item {
   title       String
   description String?
 
-  // Type: task, goal, workstream (project-level workstreams are Items, not separate table)
+  // Type: task, routine
   itemType String @default("task") @map("item_type")
 
-  // Status: pending, in_progress, complete, blocked, cancelled, deferred, active, paused
+  // Status: pending, in_progress, complete, blocked, cancelled, deferred
   status   String @default("pending")
   priority Int?
 
@@ -144,7 +144,7 @@ model Item {
   ownerId Int?    @map("owner_id")
   owner   Person? @relation("ItemOwner", fields: [ownerId], references: [id])
 
-  // File system sync (for workstream items that map to files)
+  // File system sync
   filePath     String?   @map("file_path")
   fileHash     String?   @map("file_hash")
   lastSyncedAt DateTime? @map("last_synced_at")

@@ -66,7 +66,7 @@ function formatItem(item: {
     displayId: formatTaskId(item.id),
     title: item.title,
     description: item.description,
-    itemType: item.itemType as 'task' | 'workstream' | 'goal' | 'routine',
+    itemType: item.itemType as 'task' | 'routine',
     status: item.status as ItemWithRelations['status'],
     priority: item.priority,
     dueDate: item.dueDate?.toISOString().split('T')[0] || null,
@@ -329,7 +329,7 @@ export const itemsRouter = router({
           createdAt: c.createdAt.toISOString(),
         })),
         // Blockers: items that must complete before this one can proceed
-        blockers: item.linksTo.map(link => ({
+        blockers: item.linksTo.filter(link => link.from != null).map(link => ({
           id: link.from.id,
           displayId: formatTaskId(link.from.id),
           title: link.from.title,
@@ -337,7 +337,7 @@ export const itemsRouter = router({
           linkId: link.id,
         })),
         // Blocking: items waiting for this one to complete
-        blocking: item.linksFrom.map(link => ({
+        blocking: item.linksFrom.filter(link => link.to != null).map(link => ({
           id: link.to.id,
           displayId: formatTaskId(link.to.id),
           title: link.to.title,
@@ -622,6 +622,7 @@ export const itemsRouter = router({
       // For each blocked item, check if it has other blockers
       for (const link of blockingLinks) {
         const blockedItem = link.to;
+        if (!blockedItem) continue;
 
         // Delete this blocking link
         await ctx.prisma.itemLink.delete({
@@ -953,7 +954,7 @@ export const itemsRouter = router({
       return {
         itemId,
         displayId: formatTaskId(itemId),
-        blockers: blockingLinks.map(l => ({
+        blockers: blockingLinks.filter(l => l.from != null).map(l => ({
           id: l.from.id,
           displayId: formatTaskId(l.from.id),
           title: l.from.title,
@@ -994,7 +995,7 @@ export const itemsRouter = router({
       return {
         itemId,
         displayId: formatTaskId(itemId),
-        blocking: blockedLinks.map(l => ({
+        blocking: blockedLinks.filter(l => l.to != null).map(l => ({
           id: l.to.id,
           displayId: formatTaskId(l.to.id),
           title: l.to.title,
@@ -1232,7 +1233,7 @@ export const itemsRouter = router({
       return {
         itemId,
         displayId: formatTaskId(itemId),
-        outgoing: outgoing.map(l => ({
+        outgoing: outgoing.filter(l => l.to != null).map(l => ({
           id: l.id,
           linkType: l.linkType,
           targetId: l.toId,
@@ -1240,7 +1241,7 @@ export const itemsRouter = router({
           targetTitle: l.to.title,
           targetStatus: l.to.status,
         })),
-        incoming: incoming.map(l => ({
+        incoming: incoming.filter(l => l.from != null).map(l => ({
           id: l.id,
           linkType: l.linkType,
           sourceId: l.fromId,

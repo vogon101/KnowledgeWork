@@ -14,16 +14,7 @@ import {
   parseDueDate,
   type ParsedMeeting,
 } from '../../services/meeting-parser.js';
-import {
-  syncFilesystemToDb,
-  syncWorkstreamToDb,
-  syncItemToFile,
-  detectAllConflicts,
-  forceFileSyncToDb,
-  forceDbSyncToFile,
-  scanAllWorkstreams,
-  scanWorkstreamFile,
-} from '../../services/file-sync.js';
+import { scanProjects, syncProjects } from '../../services/project-sync.js';
 import { formatTaskId } from '@kw/api-types';
 import type { PrismaClient } from '../../generated/prisma/index.js';
 
@@ -73,16 +64,16 @@ export const syncRouter = router({
       // Get count of meetings
       const meetingCount = await ctx.prisma.meeting.count();
 
-      // Get filesystem preview
-      const workstreams = scanAllWorkstreams();
+      // Get filesystem preview (projects including workstreams)
+      const projects = scanProjects();
 
       return {
         meetings: {
           count: meetingCount,
           withTasks: 0, // Simplified - would need separate query
         },
-        workstreams: {
-          count: workstreams.length,
+        projects: {
+          count: projects.length,
         },
       };
     }),
@@ -92,8 +83,8 @@ export const syncRouter = router({
    */
   all: publicProcedure
     .mutation(async () => {
-      // Sync filesystem
-      const filesystemResult = await syncFilesystemToDb();
+      // Sync projects (including workstreams as child projects)
+      const projectResult = await syncProjects();
 
       return {
         meetings: {
@@ -101,16 +92,10 @@ export const syncRouter = router({
           tasksUpdated: 0,
         },
         projects: {
-          projectsCreated: filesystemResult.created,
-          projectsUpdated: filesystemResult.updated,
-        },
-        filesystem: {
-          synced: filesystemResult.synced,
-          created: filesystemResult.created,
-          updated: filesystemResult.updated,
-          skipped: filesystemResult.skipped,
-          conflicts: filesystemResult.conflicts.length,
-          errors: filesystemResult.errors.length,
+          projectsFound: projectResult.projects_found,
+          projectsCreated: projectResult.projects_created,
+          projectsUpdated: projectResult.projects_updated,
+          errors: projectResult.errors.length,
         },
       };
     }),
@@ -227,153 +212,42 @@ export const syncRouter = router({
     }),
 
   // ===========================================================================
-  // FILESYSTEM SYNC
+  // PROJECT SYNC (replaces old filesystem/workstream sync)
   // ===========================================================================
 
   /**
-   * Preview workstream files found in filesystem
+   * Preview projects found in filesystem (including workstreams as child projects)
    */
   filesystemPreview: publicProcedure
     .query(() => {
-      const workstreams = scanAllWorkstreams();
-
-      // Group by org/project
-      const byProject: Record<string, typeof workstreams> = {};
-      for (const ws of workstreams) {
-        const key = `${ws.org}/${ws.parentProjectSlug}`;
-        if (!byProject[key]) byProject[key] = [];
-        byProject[key].push(ws);
-      }
+      const projects = scanProjects();
 
       return {
-        total: workstreams.length,
-        byProject: Object.entries(byProject).map(([key, list]) => ({
-          project: key,
-          count: list.length,
-          workstreams: list.map((ws) => ({
-            file: ws.filePath,
-            title: ws.frontmatter.title,
-            status: ws.frontmatter.status,
-            type: ws.frontmatter.type,
-            priority: ws.frontmatter.priority,
-          })),
+        total: projects.length,
+        projects: projects.map((p) => ({
+          slug: p.slug,
+          name: p.name,
+          org: p.org,
+          status: p.status,
+          isSubProject: p.isSubProject,
+          parentSlug: p.parentSlug,
         })),
       };
     }),
 
   /**
-   * Sync all workstream files to database
+   * Sync all projects (including workstreams) from filesystem to database
    */
   filesystem: publicProcedure
     .mutation(async () => {
-      const result = await syncFilesystemToDb();
+      const result = await syncProjects();
 
       return {
-        synced: result.synced,
-        created: result.created,
-        updated: result.updated,
-        skipped: result.skipped,
-        conflictsCount: result.conflicts.length,
-        errorsCount: result.errors.length,
-        conflicts: result.conflicts,
+        projectsFound: result.projects_found,
+        projectsCreated: result.projects_created,
+        projectsUpdated: result.projects_updated,
         errors: result.errors,
       };
-    }),
-
-  /**
-   * Sync a specific file to database
-   */
-  file: publicProcedure
-    .input(z.object({
-      path: z.string(),
-      force: z.boolean().optional().default(false),
-    }))
-    .mutation(async ({ input }) => {
-      const workstream = scanWorkstreamFile(input.path);
-
-      if (!workstream) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'File is not a valid workstream (missing type: workstream frontmatter)',
-        });
-      }
-
-      if (input.force) {
-        const result = await forceFileSyncToDb(input.path);
-        return {
-          action: result.success ? 'force_synced' : 'error',
-          itemId: result.itemId,
-          error: result.error,
-        };
-      } else {
-        const result = await syncWorkstreamToDb(workstream);
-        return {
-          action: result.action,
-          itemId: result.itemId,
-          error: result.error,
-          conflict: result.conflict,
-        };
-      }
-    }),
-
-  /**
-   * Push database changes to file
-   */
-  itemToFile: publicProcedure
-    .input(z.object({
-      id: z.number(),
-      force: z.boolean().optional().default(false),
-    }))
-    .mutation(async ({ input }) => {
-      const result = input.force
-        ? await forceDbSyncToFile(input.id)
-        : await syncItemToFile(input.id);
-
-      return {
-        success: result.success,
-        filePath: result.filePath,
-        error: result.error,
-        hadConflict: result.hadConflict,
-      };
-    }),
-
-  /**
-   * List all sync conflicts
-   */
-  conflicts: publicProcedure
-    .query(async () => {
-      const conflicts = await detectAllConflicts();
-
-      return {
-        total: conflicts.length,
-        conflicts,
-      };
-    }),
-
-  /**
-   * Resolve a conflict
-   */
-  resolveConflict: publicProcedure
-    .input(z.object({
-      itemId: z.number(),
-      winner: z.enum(['file', 'database']),
-    }))
-    .mutation(async ({ input }) => {
-      if (input.winner === 'file') {
-        const result = await forceFileSyncToDb(input.itemId.toString());
-        return {
-          resolved: result.success,
-          winner: 'file',
-          error: result.error,
-        };
-      } else {
-        const result = await forceDbSyncToFile(input.itemId);
-        return {
-          resolved: result.success,
-          winner: 'database',
-          error: result.error,
-        };
-      }
     }),
 });
 
@@ -393,6 +267,9 @@ async function syncMeetingActions(prisma: PrismaClient, meeting: ParsedMeeting):
     taskIds: [],
   };
 
+  // Extract org from meeting path (e.g., "acme-corp/meetings/..." -> "acme-corp")
+  const meetingOrg = meeting.path.split('/')[0] || undefined;
+
   // Find or create meeting in database (always, even with no actions)
   let meetingRecord = await prisma.meeting.findUnique({
     where: { path: meeting.path },
@@ -411,7 +288,10 @@ async function syncMeetingActions(prisma: PrismaClient, meeting: ParsedMeeting):
     for (let i = 0; i < meeting.projects.length; i++) {
       const projectSlug = meeting.projects[i];
       const project = await prisma.project.findFirst({
-        where: { slug: projectSlug },
+        where: {
+          slug: projectSlug,
+          ...(meetingOrg ? { organization: { slug: meetingOrg } } : {}),
+        },
       });
       if (project) {
         await prisma.meetingProject.upsert({
@@ -529,12 +409,15 @@ async function syncMeetingActions(prisma: PrismaClient, meeting: ParsedMeeting):
         }
       }
 
-      // Find project
+      // Find project (scoped to meeting's org)
       let projectId: number | null = null;
       const projectSlug = action.project || meeting.primaryProject;
       if (projectSlug) {
         const project = await prisma.project.findFirst({
-          where: { slug: projectSlug },
+          where: {
+            slug: projectSlug,
+            ...(meetingOrg ? { organization: { slug: meetingOrg } } : {}),
+          },
         });
         projectId = project?.id || null;
       }
