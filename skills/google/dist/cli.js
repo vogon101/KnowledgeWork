@@ -35,6 +35,41 @@ function formatDateTime(dateStr) {
 function formatTime(dateStr) {
     return new Date(dateStr).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 }
+function printNow() {
+    const now = new Date();
+    console.log(`Current time: ${now.toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} ${now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`);
+}
+let calendarNameCache = null;
+async function getCalendarNames() {
+    if (calendarNameCache)
+        return calendarNameCache;
+    try {
+        const result = await trpc.calendar.calendars.query();
+        calendarNameCache = new Map();
+        for (const cal of result.calendars) {
+            if (cal.id && cal.summary) {
+                calendarNameCache.set(cal.id, cal.summary);
+            }
+        }
+    }
+    catch {
+        calendarNameCache = new Map();
+    }
+    return calendarNameCache;
+}
+function formatCalendarTag(calendarId, calendarIds, nameMap) {
+    const ids = calendarIds || (calendarId ? [calendarId] : []);
+    const nonPrimary = ids.filter(id => id !== 'primary');
+    if (nonPrimary.length === 0) {
+        return ids.length > 1 ? '[multiple] ' : '';
+    }
+    const labels = nonPrimary.map(id => {
+        if (nameMap?.has(id))
+            return nameMap.get(id);
+        return id;
+    });
+    return `[${labels.join(', ')}] `;
+}
 // Format an email address object to display string
 function formatEmailAddress(addr) {
     if (!addr)
@@ -53,6 +88,13 @@ function formatEmailAddressShort(addr) {
 // Main Program
 // =============================================================================
 const program = new Command();
+// Send all Commander output (including errors) to stdout so it's visible
+// even when stderr is redirected (e.g. 2>/dev/null)
+program.configureOutput({
+    writeOut: (str) => process.stdout.write(str),
+    writeErr: (str) => process.stdout.write(str),
+    outputError: (str) => process.stdout.write(str),
+});
 program
     .name('google-cli')
     .description('CLI for Google integration (Gmail, Contacts, Calendar) via Knowledge Work')
@@ -81,7 +123,7 @@ gmail
         console.log(`  Account: ${result.email}`);
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(error instanceof Error ? error.message : 'Unknown error'));
         process.exit(1);
     }
 });
@@ -119,7 +161,7 @@ gmail
         }
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(error instanceof Error ? error.message : 'Unknown error'));
         process.exit(1);
     }
 });
@@ -149,7 +191,7 @@ gmail
         }
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(error instanceof Error ? error.message : 'Unknown error'));
         process.exit(1);
     }
 });
@@ -194,7 +236,7 @@ gmail
         console.log(`Email ID: ${email.id}`);
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(error instanceof Error ? error.message : 'Unknown error'));
         process.exit(1);
     }
 });
@@ -218,7 +260,7 @@ gmail
         }
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(error instanceof Error ? error.message : 'Unknown error'));
         process.exit(1);
     }
 });
@@ -249,7 +291,7 @@ gmail
         }
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(error instanceof Error ? error.message : 'Unknown error'));
         process.exit(1);
     }
 });
@@ -282,7 +324,7 @@ gmail
         }
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(error instanceof Error ? error.message : 'Unknown error'));
         process.exit(1);
     }
 });
@@ -324,10 +366,10 @@ contacts
     catch (error) {
         const msg = error instanceof Error ? error.message : 'Unknown error';
         if (msg.includes('scope') || msg.includes('Contacts')) {
-            console.error('Contacts not authorized. Re-run google-auth.ts to add contacts scope.');
+            console.log('Contacts not authorized. Re-run google-auth.ts to add contacts scope.');
         }
         else {
-            console.error(formatError(msg));
+            console.log(formatError(msg));
         }
         process.exit(1);
     }
@@ -356,10 +398,10 @@ contacts
     catch (error) {
         const msg = error instanceof Error ? error.message : 'Unknown error';
         if (msg.includes('scope') || msg.includes('Contacts')) {
-            console.error('Contacts not authorized. Re-run google-auth.ts to add contacts scope.');
+            console.log('Contacts not authorized. Re-run google-auth.ts to add contacts scope.');
         }
         else {
-            console.error(formatError(msg));
+            console.log(formatError(msg));
         }
         process.exit(1);
     }
@@ -388,7 +430,31 @@ calendar
         console.log(`  Account: ${result.email}`);
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        process.exit(1);
+    }
+});
+calendar
+    .command('calendars')
+    .description('List all available calendars and their IDs')
+    .action(async () => {
+    try {
+        const result = await trpc.calendar.calendars.query();
+        console.log(`${result.calendars.length} calendars available`);
+        console.log('─'.repeat(70));
+        for (const cal of result.calendars) {
+            const primary = cal.primary ? ' (primary)' : '';
+            const configured = result.configuredIds.includes(cal.id) ? ' [configured]' : '';
+            console.log(`  ${cal.summary || '(untitled)'}${primary}${configured}`);
+            console.log(`    ID: ${cal.id}`);
+            console.log(`    Access: ${cal.accessRole || 'unknown'}`);
+        }
+        console.log();
+        console.log('To query multiple calendars, set:');
+        console.log(`  export GOOGLE_CALENDAR_IDS=${result.configuredIds.join(',')}`);
+    }
+    catch (error) {
+        console.log(formatError(error instanceof Error ? error.message : 'Unknown error'));
         process.exit(1);
     }
 });
@@ -404,20 +470,23 @@ calendar
             timeMin: startOfDay.toISOString(),
             timeMax: endOfDay.toISOString(),
         });
+        printNow();
         if (result.events.length === 0) {
             console.log('No events today');
             return;
         }
         console.log(`Today: ${result.events.length} events`);
         console.log('─'.repeat(70));
+        const nameMap = await getCalendarNames();
         for (const event of result.events) {
+            const tag = formatCalendarTag(event.calendarId, event.calendarIds, nameMap);
             if (event.isAllDay) {
-                console.log(`  All day   ${event.summary || '(no title)'}`);
+                console.log(`  All day   ${tag}${event.summary || '(no title)'}`);
             }
             else {
                 const start = formatTime(event.start);
                 const end = formatTime(event.end);
-                console.log(`  ${start}-${end}  ${event.summary || '(no title)'}`);
+                console.log(`  ${start}-${end}  ${tag}${event.summary || '(no title)'}`);
             }
             if (event.location)
                 console.log(`            Location: ${event.location}`);
@@ -434,7 +503,7 @@ calendar
         }
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(error instanceof Error ? error.message : 'Unknown error'));
         process.exit(1);
     }
 });
@@ -453,12 +522,14 @@ calendar
             timeMax: end.toISOString(),
             maxResults: options.limit,
         });
+        printNow();
         if (result.events.length === 0) {
             console.log(`No events in the next ${days} days`);
             return;
         }
         console.log(`Upcoming: ${result.events.length} events (next ${days} days)`);
         console.log('─'.repeat(70));
+        const nameMap = await getCalendarNames();
         let currentDate = '';
         for (const event of result.events) {
             const eventDate = formatDate(event.start);
@@ -466,19 +537,20 @@ calendar
                 currentDate = eventDate;
                 console.log(`\n${eventDate}`);
             }
+            const tag = formatCalendarTag(event.calendarId, event.calendarIds, nameMap);
             if (event.isAllDay) {
-                console.log(`  All day   ${event.summary || '(no title)'}`);
+                console.log(`  All day   ${tag}${event.summary || '(no title)'}`);
             }
             else {
                 const start = formatTime(event.start);
                 const end = formatTime(event.end);
-                console.log(`  ${start}-${end}  ${event.summary || '(no title)'}`);
+                console.log(`  ${start}-${end}  ${tag}${event.summary || '(no title)'}`);
             }
             console.log(`            ID: ${event.id}`);
         }
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(error instanceof Error ? error.message : 'Unknown error'));
         process.exit(1);
     }
 });
@@ -499,21 +571,24 @@ calendar
             timeMax,
             maxResults: options.limit,
         });
+        printNow();
         if (result.events.length === 0) {
             console.log(`No events matching "${query}"`);
             return;
         }
         console.log(`${result.events.length} events matching "${query}"`);
         console.log('─'.repeat(70));
+        const nameMap = await getCalendarNames();
         for (const event of result.events) {
             const dateStr = formatDate(event.start);
+            const tag = formatCalendarTag(event.calendarId, event.calendarIds, nameMap);
             if (event.isAllDay) {
-                console.log(`${dateStr}  All day   ${event.summary || '(no title)'}`);
+                console.log(`${dateStr}  All day   ${tag}${event.summary || '(no title)'}`);
             }
             else {
                 const start = formatTime(event.start);
                 const end = formatTime(event.end);
-                console.log(`${dateStr}  ${start}-${end}  ${event.summary || '(no title)'}`);
+                console.log(`${dateStr}  ${start}-${end}  ${tag}${event.summary || '(no title)'}`);
             }
             if (event.location)
                 console.log(`         Location: ${event.location}`);
@@ -521,7 +596,7 @@ calendar
         }
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(error instanceof Error ? error.message : 'Unknown error'));
         process.exit(1);
     }
 });
@@ -531,6 +606,7 @@ calendar
     .action(async (id) => {
     try {
         const event = await trpc.calendar.get.query({ id });
+        printNow();
         console.log('─'.repeat(70));
         console.log(`Summary:  ${event.summary || '(no title)'}`);
         if (event.isAllDay) {
@@ -567,7 +643,7 @@ calendar
         console.log(`Event ID: ${event.id}`);
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(error instanceof Error ? error.message : 'Unknown error'));
         process.exit(1);
     }
 });

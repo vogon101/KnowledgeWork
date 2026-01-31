@@ -68,6 +68,7 @@ google-cli.sh calendar <command>   # Calendar operations
 | `calendar upcoming` | Next 7 days | `google-cli.sh calendar upcoming --days 14` |
 | `calendar search` | Search events | `google-cli.sh calendar search "standup"` |
 | `calendar get` | Event details | `google-cli.sh calendar get EVENT_ID` |
+| `calendar calendars` | List available calendars | `google-cli.sh calendar calendars` |
 | `calendar status` | Check auth status | `google-cli.sh calendar status` |
 
 ### Calendar Workflows
@@ -82,6 +83,19 @@ google-cli.sh calendar <command>   # Calendar operations
 # Check upcoming week
 .claude/skills/google/scripts/google-cli.sh calendar upcoming --days 7
 ```
+
+## Multiple Calendars
+
+By default, calendar commands query only the primary calendar. To aggregate events from shared/team calendars, configure `GOOGLE_CALENDAR_IDS`. The auth script (`google-auth.ts`) sets this automatically via interactive calendar selection, saving it to `{content}/.data/kw.env`.
+
+You can also set it manually:
+
+```bash
+# In {content}/.data/kw.env (preferred) or packages/server/.env
+GOOGLE_CALENDAR_IDS=primary,team@group.calendar.google.com,project@group.calendar.google.com
+```
+
+Use `calendar calendars` to discover available calendar IDs. When multiple calendars are configured, `today`, `upcoming`, and `search` commands automatically query all of them and merge results sorted by time. Events from non-primary calendars show a `[calendar-name]` prefix.
 
 ## Critical Rules
 
@@ -158,6 +172,7 @@ gcli calendar today
 gcli calendar upcoming
 gcli calendar search "standup"
 gcli calendar get EVENT_ID
+gcli calendar calendars
 ```
 
 ## When to Use Primary Category
@@ -255,30 +270,6 @@ gcli calendar today
 gcli gmail search "from:attendee newer_than:7d"
 ```
 
-## Integration with Other Skills
-
-Gmail and Calendar are **standard parts** of daily review workflows — /resumeday, /summary, and /end-day all include email and calendar checking.
-
-### With /resumeday (Morning)
-
-```bash
-# Check today's schedule
-gcli calendar today
-# Check inbox
-gcli gmail search "category:primary in:inbox newer_than:2d"
-```
-
-### With /summary or /end-day
-
-```bash
-# Check today's events for context
-gcli calendar today
-# Check inbox
-gcli gmail search "category:primary in:inbox newer_than:2d"
-# Check tomorrow's schedule
-gcli calendar upcoming --days 2
-```
-
 ## Setup
 
 The CLI requires the server to be running and the lib/server symlink.
@@ -297,7 +288,7 @@ The setup script creates the required symlink at `skills/google/lib/server`.
 
 ### "Gmail not configured" / "Calendar not configured"
 
-Run the auth script:
+Run the auth script (opens browser automatically for OAuth):
 ```bash
 cd packages/server && npx tsx src/scripts/google-auth.ts
 ```

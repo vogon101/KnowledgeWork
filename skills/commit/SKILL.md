@@ -8,6 +8,11 @@ allowed-tools: Bash(.claude/skills/commit/scripts/commit.sh:*), Bash(git:*)
 
 Commit changes from the content directory without needing to know about the monorepo structure.
 
+## Pre-commit Check
+Before committing, run the session review skill to catch stale task references:
+- Use `/session-review` or follow `.claude/skills/session-review/SKILL.md`
+- Fix any flagged mismatches before proceeding with the commit
+
 ## Usage
 
 ```bash

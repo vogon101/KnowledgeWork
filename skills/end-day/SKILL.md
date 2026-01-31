@@ -14,7 +14,7 @@ End of the day - generate a summary of the day's work and the next steps.
 
 ## Process
 
-Ask me any questions you think I need to consider now or you need to know to wrap everything up (eg. carrying over tasks from today to tomorrow, planning tomorrow). Once fully done, commit the changes to the repo. Make sure everything that we're working on is recorded in the right places in the project files. Make sure INDEX.md and diary files are up to date.
+Ask me any questions you think I need to consider now or you need to know to wrap everything up (eg. carrying over tasks from today to tomorrow, planning tomorrow). Once fully done, commit the changes to the repo. Make sure everything that we're working on is recorded in the right places in the project files. Make sure diary files are up to date.
 
 ## Activity Review (IMPORTANT)
 
@@ -63,97 +63,40 @@ After timecard, record the daily focus rating:
 
 The focus tracker is viewable at `/timecard` (Focus Tracker tab) or via `tcli focus-summary`.
 
-## Email Review
+## Calendar & Email Review
 
-**Always** check emails as part of the end-of-day wrap-up.
-
-### Gmail Commands
-
-| Command | Purpose |
-|---------|---------|
-| `search "query"` | Find emails |
-| `get MESSAGE_ID` | Read one email (NOT `message`) |
+Check calendar and emails using the google skill. See @.claude/skills/google/SKILL.md for command reference.
 
 ```bash
-# 1. Search primary inbox (not archived) - includes read and unread
+.claude/skills/google/scripts/google-cli.sh calendar today
+.claude/skills/google/scripts/google-cli.sh calendar upcoming --days 2
 .claude/skills/google/scripts/google-cli.sh gmail search "category:primary in:inbox newer_than:2d"
-
-# 2. Read specific email by ID from search results
-.claude/skills/google/scripts/google-cli.sh gmail get MESSAGE_ID
 ```
+
+Note any meetings that happened today and flag tomorrow's meetings that need prep.
 
 Also check for expected replies on waiting tasks:
 ```bash
 .claude/skills/google/scripts/google-cli.sh gmail search "from:personname newer_than:3d"
 ```
 
-**Process emails to identify:**
-- Action items that could become tasks
-- Replies that might update existing tasks
-- Follow-ups needed tomorrow
+Process emails to identify action items, task updates, and follow-ups needed tomorrow.
 
-### PROPOSE Changes, Don't Make Them
-
-**Never create or update tasks from emails without asking.**
-
-1. Summarise what you found
-2. Propose specific changes (new tasks, status updates, etc.)
-3. Use `AskUserQuestion` to get confirmation
-4. Only make changes after user confirms
-
-**Example:**
-```
-Based on your emails, I'd suggest:
-
-1. **New task:** "Review budget for John" (due Fri)
-   → From John's email requesting Q1 budget review
-
-2. **Update T-1234:** Mark complete
-   → Sarah confirmed the timeline is approved
-
-3. **New task:** "Reschedule Thursday meeting with James"
-   → James requested moving the meeting
-
-Which of these would you like me to do?
-```
-
-**Wait for confirmation before making any changes.**
+**Propose changes, don't make them** — summarise findings, use `AskUserQuestion`, wait for confirmation before creating/updating tasks.
 
 ## Working Memory
 
 Before finishing, update `.claude/context/working-memory.md` with any important context that should persist to the next session (decisions made, blockers identified, status changes, things to remember). Trim old entries (>7 days) unless marked [KEEP].
 
-## Project Status Updates
+## Project Status Updates (MANDATORY)
 
-For projects that had activity today (including email correspondence), update their README:
+For each active project with today's activity (tasks, emails, meetings), check and update its README status block. See the "Project READMEs" section in @FRAMEWORK-INSTRUCTIONS.md for the update process and template.
 
-**Check gmail for each active project:**
+Search gmail per project for recent correspondence:
 ```bash
 .claude/skills/google/scripts/google-cli.sh gmail search "subject:project-name newer_than:2d"
 ```
 
-**Include email context in Current Status:**
-- "🟢 **Budget approval** — John confirmed via email (28 Jan)"
-- "⏳ **Legal review** — awaiting response from Sarah (email sent 25 Jan)"
-- "🟡 **Timeline concerns** — James raised issues in email, need to address"
-
-**PROPOSE README updates** and ask user to confirm before editing.
-
-Update the status summary in the README:
-
-```markdown
-<!-- AI_STATUS_START -->
-**Status Summary** (DD Month YYYY)
-
-**Recent**: What happened recently (1-2 bullet points)
-**Current**: What's the overall state right now
-**Blocked/Waiting**: Any blockers or things awaited (or "None")
-**Next**: Immediate next steps
-<!-- AI_STATUS_END -->
-```
-
-Place this after the main heading, before `## Overview`. This is the **primary status section** — you can remove redundant "Current Status" sections.
-
-**If you lack context** to write an accurate status update, use `AskUserQuestion` to clarify what's happened, what's blocked, or what's next. Don't guess — ask.
+Propose README updates and confirm with user before editing.
 
 See `content/DOCUMENT-FORMATS.md` for full spec.

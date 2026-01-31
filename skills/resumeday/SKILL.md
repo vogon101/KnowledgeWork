@@ -24,31 +24,18 @@ Resume a working session. Quick morning check-in to restore context.
    - `.claude/skills/task-cli/scripts/task-cli.sh routines due` — today's routines
    - `.claude/skills/task-cli/scripts/task-cli.sh activity --limit 20` — recent activity to see what happened since last session
 
-5. **Projects** - Any urgent items or blockers from INDEX.md?
+5. **Projects** - Check working memory for blockers or urgent items.
 
-6. **Email & Calendar Review** - Check schedule and inbox:
+6. **Email & Calendar Review** — Check schedule and inbox per the google skill (@.claude/skills/google/SKILL.md):
+   - `.claude/skills/google/scripts/google-cli.sh calendar today`
+   - `.claude/skills/google/scripts/google-cli.sh gmail search "category:primary in:inbox newer_than:2d"`
+   - Read specific emails with `gmail get MESSAGE_ID`
 
-   ```bash
-   # Check today's calendar
-   .claude/skills/google/scripts/google-cli.sh calendar today
+   Identify: today's meetings, urgent items, replies updating tasks, new action items.
 
-   # Search primary inbox (not archived) - includes read and unread
-   .claude/skills/google/scripts/google-cli.sh gmail search "category:primary in:inbox newer_than:2d"
+   **Propose changes, don't make them** — summarise findings and use `AskUserQuestion` before creating/updating tasks.
 
-   # Read specific email by ID
-   .claude/skills/google/scripts/google-cli.sh gmail get MESSAGE_ID
-   ```
-
-   **Process to identify:**
-   - Today's meetings and schedule
-   - Urgent items needing attention today
-   - Replies that might update existing tasks
-   - New action items
-
-   ### PROPOSE Changes, Don't Make Them
-
-   **Never create or update tasks from emails without asking.**
-   Summarise findings, propose changes, use `AskUserQuestion`, wait for confirmation.
+7. **Project README Check** — For each project with recent email activity or task changes, check if the README's `<!-- AI_STATUS_START -->` block is current. Propose updates if stale.
 
 ## Output
 

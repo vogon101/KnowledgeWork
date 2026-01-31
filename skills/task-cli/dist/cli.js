@@ -8,20 +8,20 @@ import { Command } from 'commander';
 import { trpc, formatTaskId, parseTaskId } from './client.js';
 import { formatItemList, formatItemLine, formatItemDetail, formatError } from './format.js';
 /**
- * Parse a project slug that may include org prefix.
- * Supports formats: "project-slug" or "org/project-slug"
- * The org prefix is needed for disambiguation when slugs exist in multiple orgs (e.g., "_general").
+ * Parse a project argument. Requires fully qualified org/slug format
+ * to avoid ambiguity (e.g., "_general" exists in multiple orgs).
  */
 function parseProjectArg(projectArg) {
-    if (projectArg.includes('/')) {
-        const [org, slug] = projectArg.split('/');
-        return { slug, org };
+    if (!projectArg.includes('/')) {
+        console.log(formatError(`Project must be fully qualified as org/project (got "${projectArg}"). Example: myorg/_general`));
+        process.exit(1);
     }
-    return { slug: projectArg };
+    const [org, ...rest] = projectArg.split('/');
+    return { org, slug: rest.join('/') };
 }
 /**
  * Resolve a project argument to a project ID.
- * Handles both simple slugs and org/slug format for disambiguation.
+ * Requires org/slug format for disambiguation.
  */
 async function resolveProjectId(projectArg) {
     const { slug, org } = parseProjectArg(projectArg);
@@ -77,7 +77,34 @@ function parseDueDate(dueArg) {
     // Fallback: return as-is (let the API validate)
     return dueArg;
 }
+/**
+ * Extract a readable error message from tRPC or generic errors.
+ */
+function getErrorMessage(error) {
+    if (error instanceof Error) {
+        // TRPCClientError has a .message that's usually descriptive
+        // but sometimes wraps a JSON shape — try to extract the inner message
+        try {
+            const parsed = JSON.parse(error.message);
+            if (Array.isArray(parsed) && parsed[0]?.error?.message) {
+                return parsed[0].error.message;
+            }
+        }
+        catch {
+            // Not JSON, use as-is
+        }
+        return error.message;
+    }
+    return String(error);
+}
 const program = new Command();
+// Send all Commander output (including errors) to stdout so it's visible
+// even when stderr is redirected (e.g. 2>/dev/null)
+program.configureOutput({
+    writeOut: (str) => process.stdout.write(str),
+    writeErr: (str) => process.stdout.write(str),
+    outputError: (str) => process.stdout.write(str),
+});
 program
     .name('task-cli')
     .description('Type-safe CLI for Knowledge Work task management')
@@ -88,8 +115,8 @@ program
 program
     .command('list')
     .description('List items with optional filters')
-    .option('--type <type>', 'Item type (task, workstream, goal, routine)')
-    .option('--project <slug>', 'Project slug')
+    .option('--type <type>', 'Item type (task, routine)')
+    .option('--project <org/slug>', 'Project (e.g. myorg/_general)')
     .option('--owner <name>', 'Owner name (partial match)')
     .option('--due <date>', 'Due date filter (today, tomorrow, this-week, YYYY-MM-DD)')
     .option('--status <status>', 'Status filter (comma-separated)')
@@ -99,8 +126,11 @@ program
         const filters = {};
         if (options.type)
             filters.itemType = options.type;
-        if (options.project)
-            filters.projectSlug = options.project;
+        if (options.project) {
+            const { slug, org } = parseProjectArg(options.project);
+            filters.projectSlug = slug;
+            filters.orgSlug = org;
+        }
         if (options.owner)
             filters.ownerName = options.owner;
         if (options.status)
@@ -132,7 +162,7 @@ program
         console.log(formatItemList(result.items));
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -140,16 +170,27 @@ program
 // Get Command
 // ============================================================================
 program
-    .command('get <id>')
-    .description('Get full details for a single item')
-    .action(async (id) => {
+    .command('get <ids>')
+    .description('Get details for one or more items (comma-separated)')
+    .action(async (ids) => {
     try {
-        const numericId = parseTaskId(id) ?? parseInt(id);
-        const item = await trpc.items.get.query({ id: numericId });
-        console.log(formatItemDetail(item));
+        const idList = ids.split(',').map((id) => parseTaskId(id.trim()) ?? parseInt(id.trim()));
+        if (idList.length === 1) {
+            const item = await trpc.items.get.query({ id: idList[0] });
+            console.log(formatItemDetail(item));
+        }
+        else {
+            const items = await Promise.all(idList.map((id) => trpc.items.get.query({ id }).catch(() => null)));
+            const valid = items.filter(Boolean);
+            if (valid.length === 0) {
+                console.log(formatError('No items found for the given IDs'));
+                process.exit(1);
+            }
+            console.log(formatItemList(valid));
+        }
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -165,7 +206,7 @@ program
         console.log(formatItemList(result.items));
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -181,7 +222,7 @@ program
         console.log(formatItemList(result.items));
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -210,7 +251,7 @@ program
         }
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -238,7 +279,7 @@ program
         console.log(formatItemList(result.items));
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -271,7 +312,7 @@ program
         }
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -297,7 +338,7 @@ program
         console.log(`Blocked:         ${result.blocked}`);
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -353,75 +394,38 @@ program
         }
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
 // ============================================================================
-// Goals Command
-// ============================================================================
-program
-    .command('goals')
-    .description('List goals')
-    .option('--project <slug>', 'Filter by project')
-    .option('--target <period>', 'Filter by target period (e.g., 2026-Q1)')
-    .action(async (options) => {
-    try {
-        const result = await trpc.items.list.query({
-            itemType: 'goal',
-            projectSlug: options.project,
-            targetPeriod: options.target,
-        });
-        if (result.items.length === 0) {
-            console.log('No goals found');
-            return;
-        }
-        console.log(`${result.items.length} goals`);
-        console.log('─'.repeat(60));
-        for (const item of result.items) {
-            const target = item.targetPeriod ? `[${item.targetPeriod}]` : '';
-            const project = item.projectName ? `(${item.projectName})` : '';
-            const progress = item.subtaskCount > 0
-                ? ` [${item.subtasksComplete}/${item.subtaskCount}]`
-                : '';
-            console.log(`${item.displayId}  ${item.status.padEnd(10)}  ${item.title}${progress} ${target} ${project}`);
-        }
-    }
-    catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
-        process.exit(1);
-    }
-});
-// ============================================================================
-// Workstreams Command
+// Workstreams Command (queries child projects, not items)
 // ============================================================================
 program
     .command('workstreams')
-    .description('List workstreams')
-    .option('--project <slug>', 'Filter by project')
-    .option('--status <status>', 'Filter by status')
+    .description('List workstreams (child projects)')
+    .option('--org <org>', 'Filter by organization')
     .action(async (options) => {
     try {
-        const result = await trpc.items.list.query({
-            itemType: 'workstream',
-            projectSlug: options.project,
-            status: options.status,
-            includeCompleted: true,
+        const result = await trpc.projects.list.query({
+            org: options.org,
         });
-        if (result.items.length === 0) {
+        // Filter to only child projects (workstreams have a parentId)
+        const workstreams = result.projects.filter((p) => p.parentId != null);
+        if (workstreams.length === 0) {
             console.log('No workstreams found');
             return;
         }
-        console.log(`${result.items.length} workstreams`);
+        console.log(`${workstreams.length} workstreams`);
         console.log('─'.repeat(60));
-        for (const item of result.items) {
-            const project = item.projectName ? `(${item.projectName})` : '';
-            const status = item.status ? `[${item.status}]` : '';
-            console.log(`${item.displayId}  ${status.padEnd(12)}  ${item.title} ${project}`);
+        for (const ws of workstreams) {
+            const status = ws.status ? `[${ws.status}]` : '';
+            const org = ws.org ? `(${ws.org})` : '';
+            console.log(`  ${ws.slug.padEnd(30)} ${status.padEnd(12)} ${ws.name} ${org}`);
         }
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -442,7 +446,7 @@ program
         console.log(results.join('\n'));
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -463,7 +467,7 @@ program
         console.log(results.join('\n'));
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -485,7 +489,7 @@ program
         console.log(`Added ${result.updateType} to ${result.displayId}`);
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -506,7 +510,7 @@ program
         console.log(results.join('\n'));
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -527,7 +531,7 @@ program
     .option('--add-blocker <ids>', 'Add blocker IDs (comma-separated)')
     .option('--remove-blocker <ids>', 'Remove blocker IDs (comma-separated)')
     .option('--owner <name>', 'Owner name')
-    .option('--project <slug>', 'Project slug')
+    .option('--project <org/slug>', 'Project (e.g. myorg/_general)')
     .action(async (ids, options) => {
     try {
         const idList = ids.split(',').map((id) => parseTaskId(id.trim()) ?? parseInt(id.trim()));
@@ -557,7 +561,7 @@ program
         if (options.owner) {
             const person = await trpc.people.findByName.query({ name: options.owner });
             if (!person) {
-                console.error(formatError(`Owner not found: ${options.owner}`));
+                console.log(formatError(`Owner not found: ${options.owner}`));
                 process.exit(1);
             }
             data.ownerId = person.id;
@@ -568,7 +572,7 @@ program
                 data.projectId = await resolveProjectId(options.project);
             }
             catch {
-                console.error(formatError(`Project not found: ${options.project}`));
+                console.log(formatError(`Project not found: ${options.project}`));
                 process.exit(1);
             }
         }
@@ -590,7 +594,7 @@ program
         const noDataUpdate = Object.keys(data).length === 0;
         const noBlockerUpdate = blockersToAdd.length === 0 && blockersToRemove.length === 0;
         if (noDataUpdate && noBlockerUpdate) {
-            console.error(formatError('No updates specified'));
+            console.log(formatError('No updates specified'));
             process.exit(1);
         }
         const results = [];
@@ -625,7 +629,7 @@ program
         console.log(results.join('\n'));
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -634,9 +638,9 @@ program
 // ============================================================================
 program
     .command('create <type> <title>')
-    .description('Create a new item (type: task, goal, workstream)')
+    .description('Create a new item (type: task, routine)')
     .option('--owner <name>', 'Owner name')
-    .option('--project <slug>', 'Project slug')
+    .option('--project <org/slug>', 'Project (e.g. myorg/_general)')
     .option('--due <date>', 'Due date (YYYY-MM-DD)')
     .option('--target <period>', 'Target period (e.g., 2026-Q1)')
     .option('--priority <n>', 'Priority (1-4)', parseInt)
@@ -650,7 +654,7 @@ program
         if (options.owner) {
             const person = await trpc.people.findByName.query({ name: options.owner });
             if (!person) {
-                console.error(formatError(`Owner not found: ${options.owner}`));
+                console.log(formatError(`Owner not found: ${options.owner}`));
                 process.exit(1);
             }
             ownerId = person.id;
@@ -662,7 +666,7 @@ program
                 projectId = await resolveProjectId(options.project);
             }
             catch {
-                console.error(formatError(`Project not found: ${options.project}`));
+                console.log(formatError(`Project not found: ${options.project}`));
                 process.exit(1);
             }
         }
@@ -691,14 +695,14 @@ program
                 catch (e) {
                     const msg = e instanceof Error ? e.message : '';
                     if (!msg.includes('already blocks')) {
-                        console.error(formatError(`Failed to add blocker ${formatTaskId(blockerId)}: ${msg}`));
+                        console.log(formatError(`Failed to add blocker ${formatTaskId(blockerId)}: ${msg}`));
                     }
                 }
             }
         }
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -716,7 +720,7 @@ program
             const result = await trpc.people.list.query({ search: name, org: options.org });
             const person = result.people[0];
             if (!person) {
-                console.error(formatError(`Person not found: ${name}`));
+                console.log(formatError(`Person not found: ${name}`));
                 process.exit(1);
             }
             const personDetail = await trpc.people.get.query({ id: person.id });
@@ -755,7 +759,7 @@ program
         }
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -777,7 +781,7 @@ program
         console.log(`Created person: ${person.name} (ID: ${person.id})`);
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -794,7 +798,7 @@ program
         // Find person by name
         const person = await trpc.people.findByName.query({ name });
         if (!person) {
-            console.error(formatError(`Person not found: ${name}`));
+            console.log(formatError(`Person not found: ${name}`));
             process.exit(1);
         }
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -808,14 +812,14 @@ program
         if (options.notes)
             data.notes = options.notes;
         if (Object.keys(data).length === 0) {
-            console.error(formatError('No updates specified'));
+            console.log(formatError('No updates specified'));
             process.exit(1);
         }
         const updated = await trpc.people.update.mutate({ id: person.id, data });
         console.log(`Updated person: ${updated.name}`);
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -828,14 +832,14 @@ program
         // Find person by name
         const person = await trpc.people.findByName.query({ name });
         if (!person) {
-            console.error(formatError(`Person not found: ${name}`));
+            console.log(formatError(`Person not found: ${name}`));
             process.exit(1);
         }
         await trpc.people.delete.mutate({ id: person.id });
         console.log(`Deleted person: ${name}`);
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -851,7 +855,7 @@ program
         console.log(formatItemList(result.items));
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -867,7 +871,7 @@ program
         console.log(formatItemList(items));
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -906,7 +910,7 @@ routines
         }
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -930,7 +934,7 @@ routines
         }
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -959,7 +963,7 @@ routines
         }
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -985,7 +989,7 @@ routines
         }
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -1007,7 +1011,7 @@ routines
         }
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -1028,7 +1032,7 @@ routines
         }
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -1060,7 +1064,7 @@ routines
         }
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -1073,7 +1077,7 @@ routines
     .option('--days <days>', 'Days (for custom, comma-separated: mon,tue,wed or 1,2,3)')
     .option('--priority <n>', 'Priority (1-4)', parseInt)
     .option('--owner <name>', 'Owner name')
-    .option('--project <slug>', 'Project slug')
+    .option('--project <org/slug>', 'Project (e.g. myorg/_general)')
     .option('--description <text>', 'Description')
     .action(async (title, options) => {
     try {
@@ -1082,7 +1086,7 @@ routines
         if (options.owner) {
             const person = await trpc.people.findByName.query({ name: options.owner });
             if (!person) {
-                console.error(formatError(`Owner not found: ${options.owner}`));
+                console.log(formatError(`Owner not found: ${options.owner}`));
                 process.exit(1);
             }
             ownerId = person.id;
@@ -1094,7 +1098,7 @@ routines
                 projectId = await resolveProjectId(options.project);
             }
             catch {
-                console.error(formatError(`Project not found: ${options.project}`));
+                console.log(formatError(`Project not found: ${options.project}`));
                 process.exit(1);
             }
         }
@@ -1116,7 +1120,7 @@ routines
         console.log(`Created routine ${result.id}: ${result.title} (${result.recurrenceRule})`);
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -1148,14 +1152,14 @@ routines
         if (options.description)
             data.description = options.description;
         if (Object.keys(data).length === 0) {
-            console.error(formatError('No updates specified'));
+            console.log(formatError('No updates specified'));
             process.exit(1);
         }
         await trpc.routines.update.mutate({ id: routineId, data });
         console.log(`Routine ${routineId} updated`);
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -1170,7 +1174,7 @@ routines
         console.log(`Routine ${routineId} deleted`);
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -1194,7 +1198,7 @@ routines
         }
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -1218,7 +1222,7 @@ routines
         }
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -1257,7 +1261,7 @@ sync
         }
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -1289,167 +1293,51 @@ sync
         }
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
-// sync filesystem-preview - Preview workstream files found
+// sync filesystem-preview - Preview projects found in filesystem
 sync
     .command('filesystem-preview')
-    .description('Preview workstream files found in filesystem')
+    .description('Preview projects found in filesystem (including workstreams)')
     .action(async () => {
     try {
         const result = await trpc.sync.filesystemPreview.query();
-        console.log(`${result.total} workstream files found`);
+        console.log(`${result.total} projects found`);
         console.log('─'.repeat(60));
-        for (const project of result.byProject) {
-            console.log(`\n${project.project} (${project.count} files):`);
-            for (const ws of project.workstreams) {
-                const status = ws.status ? `[${ws.status}]` : '';
-                const priority = ws.priority ? `p${ws.priority}` : '';
-                console.log(`  ${ws.title.slice(0, 40).padEnd(40)} ${status.padEnd(10)} ${priority}`);
-            }
+        for (const p of result.projects) {
+            const status = p.status ? `[${p.status}]` : '';
+            const parent = p.isSubProject ? `  (child of ${p.parentSlug})` : '';
+            console.log(`  ${p.slug.padEnd(30)} ${status.padEnd(12)} ${p.name} (${p.org})${parent}`);
         }
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
-// sync filesystem - Sync all workstream files to database
+// sync filesystem - Sync all projects (including workstreams) to database
 sync
     .command('filesystem')
-    .description('Sync all workstream files to database')
+    .description('Sync all projects (including workstreams) to database')
     .action(async () => {
     try {
         const result = await trpc.sync.filesystem.mutate();
-        console.log('Filesystem sync complete');
+        console.log('Project sync complete');
         console.log('─'.repeat(60));
-        console.log(`Synced: ${result.synced}`);
-        console.log(`  Created: ${result.created}`);
-        console.log(`  Updated: ${result.updated}`);
-        console.log(`  Skipped: ${result.skipped}`);
-        if (result.conflictsCount > 0) {
-            console.log(`\n${result.conflictsCount} conflicts found:`);
-            for (const c of result.conflicts) {
-                console.log(`  ${c.itemId ? formatTaskId(c.itemId) : 'NEW'}: ${c.filePath}`);
-                console.log(`    Reason: ${c.reason}`);
-            }
-        }
-        if (result.errorsCount > 0) {
-            console.log(`\n${result.errorsCount} errors:`);
+        console.log(`Projects found: ${result.projectsFound}`);
+        console.log(`  Created: ${result.projectsCreated}`);
+        console.log(`  Updated: ${result.projectsUpdated}`);
+        if (result.errors.length > 0) {
+            console.log(`\n${result.errors.length} errors:`);
             for (const e of result.errors) {
                 console.log(`  ${e}`);
             }
         }
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
-        process.exit(1);
-    }
-});
-// sync file - Sync a specific file to database
-sync
-    .command('file <path>')
-    .description('Sync a specific workstream file to database')
-    .option('--force', 'Override conflict detection')
-    .action(async (path, options) => {
-    try {
-        const result = await trpc.sync.file.mutate({ path, force: options.force });
-        if (result.error) {
-            console.error(formatError(result.error));
-            process.exit(1);
-        }
-        console.log(`Action: ${result.action}`);
-        if (result.itemId) {
-            console.log(`Item: ${formatTaskId(result.itemId)}`);
-        }
-        if (result.conflict) {
-            console.log(`\nConflict detected:`);
-            console.log(`  ${result.conflict}`);
-            console.log(`  Use --force to override`);
-        }
-    }
-    catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
-        process.exit(1);
-    }
-});
-// sync item - Push database changes to file
-sync
-    .command('item <id>')
-    .description('Push database changes to workstream file')
-    .option('--force', 'Override conflict detection')
-    .action(async (id, options) => {
-    try {
-        const numericId = parseTaskId(id) ?? parseInt(id);
-        const result = await trpc.sync.itemToFile.mutate({ id: numericId, force: options.force });
-        if (!result.success) {
-            console.error(formatError(result.error || 'Sync failed'));
-            if (result.hadConflict) {
-                console.log('  Use --force to override');
-            }
-            process.exit(1);
-        }
-        console.log(`Synced ${formatTaskId(numericId)} to ${result.filePath}`);
-    }
-    catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
-        process.exit(1);
-    }
-});
-// sync conflicts - List all sync conflicts
-sync
-    .command('conflicts')
-    .description('List all sync conflicts')
-    .action(async () => {
-    try {
-        const result = await trpc.sync.conflicts.query();
-        if (result.total === 0) {
-            console.log('No conflicts');
-            return;
-        }
-        console.log(`${result.total} conflicts`);
-        console.log('─'.repeat(60));
-        for (const c of result.conflicts) {
-            console.log(`\n${c.itemId ? formatTaskId(c.itemId) : 'NEW'}: ${c.filePath}`);
-            console.log(`  Reason: ${c.reason}`);
-            if (c.fileHash)
-                console.log(`  File hash: ${c.fileHash.slice(0, 8)}...`);
-            if (c.dbHash)
-                console.log(`  DB hash: ${c.dbHash.slice(0, 8)}...`);
-        }
-    }
-    catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
-        process.exit(1);
-    }
-});
-// sync resolve - Resolve a conflict
-sync
-    .command('resolve <id> <winner>')
-    .description('Resolve a sync conflict (winner: file or database)')
-    .action(async (id, winner) => {
-    try {
-        if (winner !== 'file' && winner !== 'database') {
-            console.error(formatError('Winner must be "file" or "database"'));
-            process.exit(1);
-        }
-        const numericId = parseTaskId(id) ?? parseInt(id);
-        const result = await trpc.sync.resolveConflict.mutate({
-            itemId: numericId,
-            winner: winner,
-        });
-        if (result.resolved) {
-            console.log(`Conflict resolved: ${winner} wins`);
-        }
-        else {
-            console.error(formatError(result.error || 'Failed to resolve conflict'));
-            process.exit(1);
-        }
-    }
-    catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -1499,7 +1387,7 @@ program
         }
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -1522,7 +1410,7 @@ program
                 parentId = parent.id;
             }
             catch {
-                console.error(formatError(`Parent project not found: ${options.parent}`));
+                console.log(formatError(`Parent project not found: ${options.parent}`));
                 process.exit(1);
             }
         }
@@ -1538,7 +1426,7 @@ program
         console.log(`Created project: ${project.org}/${project.slug} - ${project.name}`);
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -1572,14 +1460,14 @@ program
         if (options.description)
             data.description = options.description;
         if (Object.keys(data).length === 0) {
-            console.error(formatError('No updates specified'));
+            console.log(formatError('No updates specified'));
             process.exit(1);
         }
         const updated = await trpc.projects.update.mutate({ id: project.id, data });
         console.log(`Updated project: ${updated.org}/${updated.slug}`);
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -1628,7 +1516,7 @@ program
         }
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -1664,7 +1552,7 @@ program
         }
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -1687,7 +1575,7 @@ program
             console.log(`  Short name: ${org.shortName}`);
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -1711,14 +1599,14 @@ program
             data.description = options.description === '' ? null : options.description;
         }
         if (Object.keys(data).length === 0) {
-            console.error(formatError('No updates specified'));
+            console.log(formatError('No updates specified'));
             process.exit(1);
         }
         const updated = await trpc.organizations.update.mutate({ slug, data });
         console.log(`Updated organization: ${updated.slug} - ${updated.name}`);
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -1753,7 +1641,7 @@ program
         }
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -1777,7 +1665,7 @@ program
             console.log(`  Note: ${result.note}`);
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -1805,7 +1693,7 @@ program
         }
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -1819,7 +1707,7 @@ program
         console.log(`Check-in ${id} deleted`);
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -1839,7 +1727,7 @@ program
         console.log(`Check-in completed for ${result.displayId}`);
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -1852,7 +1740,7 @@ program
     .action(async (fromId, linkType, toId) => {
     try {
         if (!['blocks', 'related', 'duplicate'].includes(linkType)) {
-            console.error(formatError('Link type must be: blocks, related, or duplicate'));
+            console.log(formatError('Link type must be: blocks, related, or duplicate'));
             process.exit(1);
         }
         const result = await trpc.items.addLink.mutate({
@@ -1865,7 +1753,7 @@ program
         console.log(`  To:   ${result.toTitle}`);
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -1875,7 +1763,7 @@ program
     .action(async (fromId, linkType, toId) => {
     try {
         if (!['blocks', 'related', 'duplicate'].includes(linkType)) {
-            console.error(formatError('Link type must be: blocks, related, or duplicate'));
+            console.log(formatError('Link type must be: blocks, related, or duplicate'));
             process.exit(1);
         }
         const result = await trpc.items.removeLink.mutate({
@@ -1891,7 +1779,7 @@ program
         }
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -1923,7 +1811,7 @@ program
         }
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -1937,7 +1825,7 @@ program
     try {
         const validRoles = ['assignee', 'waiting_on', 'stakeholder', 'reviewer', 'cc'];
         if (!validRoles.includes(role)) {
-            console.error(formatError(`Role must be: ${validRoles.join(', ')}`));
+            console.log(formatError(`Role must be: ${validRoles.join(', ')}`));
             process.exit(1);
         }
         const result = await trpc.items.addPerson.mutate({
@@ -1948,7 +1836,7 @@ program
         console.log(`Added ${result.personName} as ${result.role} to ${result.itemDisplayId}`);
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -1959,7 +1847,7 @@ program
     try {
         const validRoles = ['assignee', 'waiting_on', 'stakeholder', 'reviewer', 'cc'];
         if (!validRoles.includes(role)) {
-            console.error(formatError(`Role must be: ${validRoles.join(', ')}`));
+            console.log(formatError(`Role must be: ${validRoles.join(', ')}`));
             process.exit(1);
         }
         const result = await trpc.items.removePerson.mutate({
@@ -1975,7 +1863,7 @@ program
         }
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -1997,7 +1885,7 @@ program
         }
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -2028,7 +1916,7 @@ tags
         }
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -2057,7 +1945,7 @@ tags
         }
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -2077,7 +1965,7 @@ tags
         console.log(`Created tag: ${result.name} (ID: ${result.id})`);
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -2103,7 +1991,7 @@ tags
         console.log(`Updated tag: ${result.name}`);
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -2118,7 +2006,7 @@ tags
         console.log(`Tag ${tagId} deleted`);
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -2135,7 +2023,7 @@ program
         console.log(`Added tag "${result.tagName}" to ${result.itemDisplayId}`);
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -2156,7 +2044,7 @@ program
         }
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -2178,7 +2066,7 @@ program
         }
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -2210,7 +2098,7 @@ program
         }
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -2238,7 +2126,7 @@ program
         console.log(`\nProgress: ${item.subtasksComplete}/${item.subtaskCount} complete`);
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -2297,7 +2185,7 @@ program
             console.log(`  Notes: ${options.notes}`);
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -2345,7 +2233,7 @@ program
         }
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });
@@ -2375,7 +2263,7 @@ program
         }
     }
     catch (error) {
-        console.error(formatError(error instanceof Error ? error.message : 'Unknown error'));
+        console.log(formatError(getErrorMessage(error)));
         process.exit(1);
     }
 });

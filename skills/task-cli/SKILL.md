@@ -59,10 +59,8 @@ Each organization has a `_general` project for tasks not tied to a specific init
 tcli create task "General admin work" --project acme-corp/_general
 tcli create task "ExOrg admin" --project example-org/_general
 
-# Create project-specific task (unique slug, no org needed)
-tcli create task "Update nuclear tracker" --project analytics-dashboard
-
-# If a project slug is ambiguous (exists in multiple orgs), specify org
+# Create project-specific task (always use org/slug format)
+tcli create task "Update nuclear tracker" --project acme-corp/analytics-dashboard
 tcli create task "Website update" --project acme-corp/website
 ```
 
@@ -109,12 +107,10 @@ Always verify project slug exists before using it:
 tcli projects | grep -i <keyword>
 ```
 
-Use the **slug** from the first column, not the display name:
-- ✅ `--project kw-web` (actual slug)
+The `--project` flag always requires the fully qualified `org/slug` format:
+- ✅ `--project acme-corp/kw-web` (org/slug)
+- ❌ `--project kw-web` (missing org — will be rejected)
 - ❌ `--project knowledge-work-web` (display name — won't work)
-
-For org-specific projects like `_general`, use `org/project` syntax:
-- ✅ `--project acme-corp/_general`
 
 ## Quick Reference
 
@@ -129,7 +125,7 @@ alias tcli='.claude/skills/task-cli/scripts/task-cli.sh'
 # List items
 tcli list                              # All pending items
 tcli list --owner Alice              # Filtered by owner
-tcli list --project grid-management    # Filtered by project
+tcli list --project acme-corp/grid-management  # Filtered by project
 tcli list --due today                  # Due today
 tcli list --type workstream            # Only workstreams
 tcli list --status pending,in_progress # Multiple statuses
@@ -145,6 +141,7 @@ tcli stats                             # Summary statistics/dashboard
 
 # Get details
 tcli get T-42                          # Full item details
+tcli get T-42,T-43,T-44               # Batch get (compact list)
 tcli history T-42                      # Activity history for item
 tcli subtasks T-42                     # Show subtasks
 
@@ -163,7 +160,7 @@ tcli activity --since 2026-01-20       # Activity since date
 # Create items
 tcli create task "Task title" --owner Alice --priority 2
 tcli create task "Blocked task" --blocked-by T-100,T-101
-tcli create workstream "Workstream name" --project energy
+tcli create workstream "Workstream name" --project acme-corp/energy
 tcli create goal "Q1 Goal" --target 2026-Q1
 
 # Update items
@@ -172,7 +169,7 @@ tcli update T-42 --priority 1          # Update priority
 tcli update T-42 --due 2026-02-15      # Set due date
 tcli update T-42 --due none            # Clear due date
 tcli update T-42 --owner James         # Change owner
-tcli update T-42 --project nuclear     # Move to project
+tcli update T-42 --project acme-corp/nuclear  # Move to project
 tcli update T-42,T-43,T-44 --status complete  # Batch update
 
 # Complete items (shorthand)
@@ -292,7 +289,7 @@ tcli orgs-delete newclient             # Delete (fails if referenced)
 # ─────────────────────────────────────────────────────────────
 
 tcli goals                             # List all goals
-tcli goals --project energy            # Goals for project
+tcli goals --org acme-corp             # Goals for org
 tcli workstreams                       # List workstreams
 tcli workstreams --status active       # Filter by status
 
@@ -355,9 +352,23 @@ Options:
   --project SLUG    Project slug
   --owner NAME      Owner name (partial match)
   --due DATE        Due date filter (today, tomorrow, this-week, YYYY-MM-DD)
-  --status STATUS   Status filter (can be comma-separated)
+  --status STATUS   Status filter (comma-separated: pending,in_progress,blocked)
   --limit N         Max results
 ```
+
+**⚠️ COMMON MISTAKES — read carefully:**
+
+1. **NO `--due-before` or `--due-after` flags.** These DO NOT EXIST. Use `--due` with a single value:
+   - `--due today` — due today
+   - `--due this-week` — due this week
+   - `--due 2026-02-01` — due on that exact date
+   - For range queries, use `tcli overdue` or filter results after fetching
+
+2. **Statuses must be comma-separated in ONE flag**, not repeated:
+   - ✅ `--status pending,in_progress,blocked`
+   - ❌ `--status pending --status in_progress --status blocked`
+
+3. **No range queries.** The `--due` flag is a single-value filter, not a range. To find tasks due in a week, use `--due this-week`.
 
 ### activity
 
@@ -402,13 +413,14 @@ tcli overdue
 
 ### get
 
-Get full details for a single item.
+Get details for one or more items. Accepts comma-separated IDs for batch queries.
 
 ```bash
-tcli get T-42
+tcli get T-42                  # Full details for single item
+tcli get T-42,T-43,T-44       # Compact list view for multiple items
 ```
 
-Output includes: title, type, status, priority, owner, project, due date, description, and file path.
+Single ID returns full detail view. Multiple IDs return compact list view (same format as `tcli list`). Missing IDs are silently skipped in batch mode.
 
 ### create
 
@@ -421,7 +433,7 @@ Types: task, workstream, goal
 
 Options:
   --owner NAME       Owner name
-  --project SLUG     Project slug (supports org/slug for disambiguation)
+  --project ORG/SLUG Project (requires org/slug format, e.g. myorg/website)
   --due DATE         Due date (today, tomorrow, +3d, monday, YYYY-MM-DD)
   --target PERIOD    Target period for goals (e.g., 2026-Q1, 2026-01)
   --priority N       Priority (1-4)
@@ -453,7 +465,7 @@ Options:
   --title TEXT          New title
   --description TEXT    New description
   --owner NAME          New owner
-  --project SLUG        Move to project (supports org/slug)
+  --project ORG/SLUG    Move to project (requires org/slug format)
   --parent ID           Set parent item (for subtasks)
   --blocked-by IDS      Set blockers (comma-separated, also sets status to blocked)
   --add-blocker IDS     Add blockers without clearing existing ones
@@ -937,6 +949,10 @@ Many phrases indicate follow-ups on existing work rather than new tasks. These s
 | "Follow up on X" | Search for task about X, propose check-in |
 | "Waiting on Y for X" | Search for task about X, add waiting_on |
 | "Chase Y about X" | Search for task, propose check-in |
+| "Call scheduled with Y" | NOT a new task — add check-in to existing project task for the call date |
+| "Meeting booked for X" | NOT a new task — it's a calendar event. Add check-in if follow-up needed |
+
+**Calendar events are NOT tasks.** A scheduled call or meeting is a calendar event, not an actionable task. Do not create tasks like "Call with X" or "Meeting with Y". Instead, add a check-in to the relevant existing project task for that date, so you're reminded to prepare or follow up.
 
 **Workflow for "Check in with John":**
 1. Search: `tcli list --owner John`

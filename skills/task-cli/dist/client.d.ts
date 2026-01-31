@@ -10,6 +10,99 @@ export declare const trpc: import("@trpc/client").TRPCClient<import("@trpc/serve
     errorShape: import("@trpc/server").TRPCDefaultErrorShape;
     transformer: true;
 }, import("@trpc/server").TRPCDecorateCreateRouterOptions<{
+    calendar: import("@trpc/server").TRPCBuiltRouter<{
+        ctx: import("../lib/server/trpc/trpc.js").TRPCContext;
+        meta: object;
+        errorShape: import("@trpc/server").TRPCDefaultErrorShape;
+        transformer: true;
+    }, import("@trpc/server").TRPCDecorateCreateRouterOptions<{
+        status: import("@trpc/server").TRPCQueryProcedure<{
+            input: void;
+            output: {
+                configured: boolean;
+                authenticated: boolean;
+                email: string | null;
+                error: string | null;
+            };
+            meta: object;
+        }>;
+        list: import("@trpc/server").TRPCQueryProcedure<{
+            input: {
+                query?: string | undefined;
+                maxResults?: number | undefined;
+                calendarId?: string | undefined;
+                timeMin?: string | undefined;
+                timeMax?: string | undefined;
+            };
+            output: {
+                events: import("@kw/api-types").CalendarEvent[];
+                nextPageToken: string | null;
+            };
+            meta: object;
+        }>;
+        search: import("@trpc/server").TRPCQueryProcedure<{
+            input: {
+                query: string;
+                calendarId?: string | undefined;
+                timeMin?: string | undefined;
+                timeMax?: string | undefined;
+                maxResults?: number | undefined;
+            };
+            output: {
+                events: import("@kw/api-types").CalendarEvent[];
+                nextPageToken: string | null;
+            };
+            meta: object;
+        }>;
+        get: import("@trpc/server").TRPCQueryProcedure<{
+            input: {
+                id: string;
+                calendarId?: string | undefined;
+            };
+            output: {
+                id: string;
+                attendees: {
+                    email: string;
+                    displayName?: string | null | undefined;
+                    responseStatus?: string | null | undefined;
+                    self?: boolean | undefined;
+                    organizer?: boolean | undefined;
+                }[];
+                start: string;
+                end: string;
+                isAllDay: boolean;
+                status?: string | null | undefined;
+                description?: string | null | undefined;
+                location?: string | null | undefined;
+                organizer?: {
+                    email: string;
+                    displayName?: string | null | undefined;
+                    self?: boolean | undefined;
+                } | null | undefined;
+                summary?: string | null | undefined;
+                startDate?: string | null | undefined;
+                endDate?: string | null | undefined;
+                htmlLink?: string | null | undefined;
+                recurringEventId?: string | null | undefined;
+                calendarId?: string | null | undefined;
+                calendarIds?: string[] | null | undefined;
+            };
+            meta: object;
+        }>;
+        calendars: import("@trpc/server").TRPCQueryProcedure<{
+            input: void;
+            output: {
+                calendars: {
+                    id: string;
+                    summary?: string | null | undefined;
+                    primary?: boolean | undefined;
+                    accessRole?: string | null | undefined;
+                }[];
+                configuredIds: string[];
+            };
+            meta: object;
+        }>;
+    }>>;
     files: import("@trpc/server").TRPCBuiltRouter<{
         ctx: import("../lib/server/trpc/trpc.js").TRPCContext;
         meta: object;
@@ -377,9 +470,9 @@ export declare const trpc: import("@trpc/client").TRPCClient<import("@trpc/serve
     }, import("@trpc/server").TRPCDecorateCreateRouterOptions<{
         list: import("@trpc/server").TRPCQueryProcedure<{
             input: {
-                status?: "pending" | "in_progress" | "complete" | "blocked" | "cancelled" | "deferred" | "active" | "paused" | ("pending" | "in_progress" | "complete" | "blocked" | "cancelled" | "deferred" | "active" | "paused")[] | undefined;
+                status?: "pending" | "in_progress" | "complete" | "blocked" | "cancelled" | "deferred" | ("pending" | "in_progress" | "complete" | "blocked" | "cancelled" | "deferred")[] | undefined;
                 parentId?: number | undefined;
-                itemType?: "task" | "workstream" | "goal" | "routine" | ("task" | "workstream" | "goal" | "routine")[] | undefined;
+                itemType?: "task" | "routine" | ("task" | "routine")[] | undefined;
                 targetPeriod?: string | undefined;
                 ownerId?: number | undefined;
                 projectId?: number | undefined;
@@ -397,13 +490,13 @@ export declare const trpc: import("@trpc/client").TRPCClient<import("@trpc/serve
             };
             output: {
                 items: {
-                    status: "pending" | "in_progress" | "complete" | "blocked" | "cancelled" | "deferred" | "active" | "paused";
+                    status: "pending" | "in_progress" | "complete" | "blocked" | "cancelled" | "deferred";
                     id: number;
                     createdAt: string;
                     updatedAt: string;
                     title: string;
                     displayId: string;
-                    itemType: "task" | "workstream" | "goal" | "routine";
+                    itemType: "task" | "routine";
                     projectIsGeneral: boolean;
                     subtaskCount: number;
                     subtasksComplete: number;
@@ -475,13 +568,13 @@ export declare const trpc: import("@trpc/client").TRPCClient<import("@trpc/serve
                     createdAt: string;
                 }[];
                 subtasks: {
-                    status: "pending" | "in_progress" | "complete" | "blocked" | "cancelled" | "deferred" | "active" | "paused";
+                    status: "pending" | "in_progress" | "complete" | "blocked" | "cancelled" | "deferred";
                     id: number;
                     createdAt: string;
                     updatedAt: string;
                     title: string;
                     displayId: string;
-                    itemType: "task" | "workstream" | "goal" | "routine";
+                    itemType: "task" | "routine";
                     projectIsGeneral: boolean;
                     subtaskCount: number;
                     subtasksComplete: number;
@@ -542,13 +635,13 @@ export declare const trpc: import("@trpc/client").TRPCClient<import("@trpc/serve
                     hasMoreActivities: boolean;
                     hasMoreSubtasks: boolean;
                 };
-                status: "pending" | "in_progress" | "complete" | "blocked" | "cancelled" | "deferred" | "active" | "paused";
+                status: "pending" | "in_progress" | "complete" | "blocked" | "cancelled" | "deferred";
                 id: number;
                 createdAt: string;
                 updatedAt: string;
                 title: string;
                 displayId: string;
-                itemType: "task" | "workstream" | "goal" | "routine";
+                itemType: "task" | "routine";
                 projectIsGeneral: boolean;
                 subtaskCount: number;
                 subtasksComplete: number;
@@ -586,11 +679,11 @@ export declare const trpc: import("@trpc/client").TRPCClient<import("@trpc/serve
         create: import("@trpc/server").TRPCMutationProcedure<{
             input: {
                 title: string;
-                status?: "pending" | "in_progress" | "complete" | "blocked" | "cancelled" | "deferred" | "active" | "paused" | undefined;
+                status?: "pending" | "in_progress" | "complete" | "blocked" | "cancelled" | "deferred" | undefined;
                 priority?: number | null | undefined;
                 parentId?: number | null | undefined;
                 description?: string | null | undefined;
-                itemType?: "task" | "workstream" | "goal" | "routine" | undefined;
+                itemType?: "task" | "routine" | undefined;
                 dueDate?: string | null | undefined;
                 targetPeriod?: string | null | undefined;
                 ownerId?: number | null | undefined;
@@ -602,13 +695,13 @@ export declare const trpc: import("@trpc/client").TRPCClient<import("@trpc/serve
                 metadata?: Record<string, unknown> | null | undefined;
             };
             output: {
-                status: "pending" | "in_progress" | "complete" | "blocked" | "cancelled" | "deferred" | "active" | "paused";
+                status: "pending" | "in_progress" | "complete" | "blocked" | "cancelled" | "deferred";
                 id: number;
                 createdAt: string;
                 updatedAt: string;
                 title: string;
                 displayId: string;
-                itemType: "task" | "workstream" | "goal" | "routine";
+                itemType: "task" | "routine";
                 projectIsGeneral: boolean;
                 subtaskCount: number;
                 subtasksComplete: number;
@@ -647,12 +740,12 @@ export declare const trpc: import("@trpc/client").TRPCClient<import("@trpc/serve
             input: {
                 id: string | number;
                 data: {
-                    status?: "pending" | "in_progress" | "complete" | "blocked" | "cancelled" | "deferred" | "active" | "paused" | undefined;
+                    status?: "pending" | "in_progress" | "complete" | "blocked" | "cancelled" | "deferred" | undefined;
                     priority?: number | null | undefined;
                     parentId?: number | null | undefined;
                     description?: string | null | undefined;
                     title?: string | undefined;
-                    itemType?: "task" | "workstream" | "goal" | "routine" | undefined;
+                    itemType?: "task" | "routine" | undefined;
                     dueDate?: string | null | undefined;
                     targetPeriod?: string | null | undefined;
                     ownerId?: number | null | undefined;
@@ -665,13 +758,13 @@ export declare const trpc: import("@trpc/client").TRPCClient<import("@trpc/serve
                 };
             };
             output: {
-                status: "pending" | "in_progress" | "complete" | "blocked" | "cancelled" | "deferred" | "active" | "paused";
+                status: "pending" | "in_progress" | "complete" | "blocked" | "cancelled" | "deferred";
                 id: number;
                 createdAt: string;
                 updatedAt: string;
                 title: string;
                 displayId: string;
-                itemType: "task" | "workstream" | "goal" | "routine";
+                itemType: "task" | "routine";
                 projectIsGeneral: boolean;
                 subtaskCount: number;
                 subtasksComplete: number;
@@ -724,13 +817,13 @@ export declare const trpc: import("@trpc/client").TRPCClient<import("@trpc/serve
                     title: string;
                 }[];
                 clearedCheckIns: number;
-                status: "pending" | "in_progress" | "complete" | "blocked" | "cancelled" | "deferred" | "active" | "paused";
+                status: "pending" | "in_progress" | "complete" | "blocked" | "cancelled" | "deferred";
                 id: number;
                 createdAt: string;
                 updatedAt: string;
                 title: string;
                 displayId: string;
-                itemType: "task" | "workstream" | "goal" | "routine";
+                itemType: "task" | "routine";
                 projectIsGeneral: boolean;
                 subtaskCount: number;
                 subtasksComplete: number;
@@ -781,13 +874,13 @@ export declare const trpc: import("@trpc/client").TRPCClient<import("@trpc/serve
                 id: string | number;
             };
             output: {
-                status: "pending" | "in_progress" | "complete" | "blocked" | "cancelled" | "deferred" | "active" | "paused";
+                status: "pending" | "in_progress" | "complete" | "blocked" | "cancelled" | "deferred";
                 id: number;
                 createdAt: string;
                 updatedAt: string;
                 title: string;
                 displayId: string;
-                itemType: "task" | "workstream" | "goal" | "routine";
+                itemType: "task" | "routine";
                 projectIsGeneral: boolean;
                 subtaskCount: number;
                 subtasksComplete: number;
@@ -861,13 +954,13 @@ export declare const trpc: import("@trpc/client").TRPCClient<import("@trpc/serve
                 checkinBy: string;
                 checkinNote: string | null;
                 isCheckin: true;
-                status: "pending" | "in_progress" | "complete" | "blocked" | "cancelled" | "deferred" | "active" | "paused";
+                status: "pending" | "in_progress" | "complete" | "blocked" | "cancelled" | "deferred";
                 id: number;
                 createdAt: string;
                 updatedAt: string;
                 title: string;
                 displayId: string;
-                itemType: "task" | "workstream" | "goal" | "routine";
+                itemType: "task" | "routine";
                 projectIsGeneral: boolean;
                 subtaskCount: number;
                 subtasksComplete: number;
@@ -1498,7 +1591,7 @@ export declare const trpc: import("@trpc/client").TRPCClient<import("@trpc/serve
                     org: string;
                     slug: string;
                     isGeneral: boolean;
-                    status?: "active" | "paused" | "planning" | "completed" | "archived" | null | undefined;
+                    status?: "active" | "planning" | "paused" | "completed" | "archived" | null | undefined;
                     createdAt?: string | undefined;
                     updatedAt?: string | undefined;
                     priority?: number | null | undefined;
@@ -1542,7 +1635,7 @@ export declare const trpc: import("@trpc/client").TRPCClient<import("@trpc/serve
                 org: string;
                 slug: string;
                 isGeneral: boolean;
-                status?: "active" | "paused" | "planning" | "completed" | "archived" | null | undefined;
+                status?: "active" | "planning" | "paused" | "completed" | "archived" | null | undefined;
                 createdAt?: string | undefined;
                 updatedAt?: string | undefined;
                 priority?: number | null | undefined;
@@ -1562,7 +1655,7 @@ export declare const trpc: import("@trpc/client").TRPCClient<import("@trpc/serve
                 name: string;
                 org: string;
                 slug: string;
-                status?: "active" | "paused" | "planning" | "completed" | "archived" | null | undefined;
+                status?: "active" | "planning" | "paused" | "completed" | "archived" | null | undefined;
                 priority?: number | null | undefined;
                 parentId?: number | null | undefined;
                 description?: string | null | undefined;
@@ -1574,7 +1667,7 @@ export declare const trpc: import("@trpc/client").TRPCClient<import("@trpc/serve
                 org: string;
                 slug: string;
                 isGeneral: boolean;
-                status?: "active" | "paused" | "planning" | "completed" | "archived" | null | undefined;
+                status?: "active" | "planning" | "paused" | "completed" | "archived" | null | undefined;
                 createdAt?: string | undefined;
                 updatedAt?: string | undefined;
                 priority?: number | null | undefined;
@@ -1593,7 +1686,7 @@ export declare const trpc: import("@trpc/client").TRPCClient<import("@trpc/serve
             input: {
                 id: number;
                 data: {
-                    status?: "active" | "paused" | "planning" | "completed" | "archived" | null | undefined;
+                    status?: "active" | "planning" | "paused" | "completed" | "archived" | null | undefined;
                     name?: string | undefined;
                     org?: string | undefined;
                     slug?: string | undefined;
@@ -1609,7 +1702,7 @@ export declare const trpc: import("@trpc/client").TRPCClient<import("@trpc/serve
                 org: string;
                 slug: string;
                 isGeneral: boolean;
-                status?: "active" | "paused" | "planning" | "completed" | "archived" | null | undefined;
+                status?: "active" | "planning" | "paused" | "completed" | "archived" | null | undefined;
                 createdAt?: string | undefined;
                 updatedAt?: string | undefined;
                 priority?: number | null | undefined;
@@ -1681,7 +1774,7 @@ export declare const trpc: import("@trpc/client").TRPCClient<import("@trpc/serve
                     org: string;
                     slug: string;
                     isGeneral: boolean;
-                    status?: "active" | "paused" | "planning" | "completed" | "archived" | null | undefined;
+                    status?: "active" | "planning" | "paused" | "completed" | "archived" | null | undefined;
                     createdAt?: string | undefined;
                     updatedAt?: string | undefined;
                     priority?: number | null | undefined;
@@ -1712,13 +1805,13 @@ export declare const trpc: import("@trpc/client").TRPCClient<import("@trpc/serve
             output: {
                 date: string;
                 items: {
-                    status: "pending" | "in_progress" | "complete" | "blocked" | "cancelled" | "deferred" | "active" | "paused";
+                    status: "pending" | "in_progress" | "complete" | "blocked" | "cancelled" | "deferred";
                     id: number;
                     createdAt: string;
                     updatedAt: string;
                     title: string;
                     displayId: string;
-                    itemType: "task" | "workstream" | "goal" | "routine";
+                    itemType: "task" | "routine";
                     projectIsGeneral: boolean;
                     subtaskCount: number;
                     subtasksComplete: number;
@@ -1761,13 +1854,13 @@ export declare const trpc: import("@trpc/client").TRPCClient<import("@trpc/serve
             } | undefined;
             output: {
                 items: {
-                    status: "pending" | "in_progress" | "complete" | "blocked" | "cancelled" | "deferred" | "active" | "paused";
+                    status: "pending" | "in_progress" | "complete" | "blocked" | "cancelled" | "deferred";
                     id: number;
                     createdAt: string;
                     updatedAt: string;
                     title: string;
                     displayId: string;
-                    itemType: "task" | "workstream" | "goal" | "routine";
+                    itemType: "task" | "routine";
                     projectIsGeneral: boolean;
                     subtaskCount: number;
                     subtasksComplete: number;
@@ -1827,13 +1920,13 @@ export declare const trpc: import("@trpc/client").TRPCClient<import("@trpc/serve
             output: {
                 query: string;
                 items: {
-                    status: "pending" | "in_progress" | "complete" | "blocked" | "cancelled" | "deferred" | "active" | "paused";
+                    status: "pending" | "in_progress" | "complete" | "blocked" | "cancelled" | "deferred";
                     id: number;
                     createdAt: string;
                     updatedAt: string;
                     title: string;
                     displayId: string;
-                    itemType: "task" | "workstream" | "goal" | "routine";
+                    itemType: "task" | "routine";
                     projectIsGeneral: boolean;
                     subtaskCount: number;
                     subtasksComplete: number;
@@ -1877,13 +1970,13 @@ export declare const trpc: import("@trpc/client").TRPCClient<import("@trpc/serve
             } | undefined;
             output: {
                 items: {
-                    status: "pending" | "in_progress" | "complete" | "blocked" | "cancelled" | "deferred" | "active" | "paused";
+                    status: "pending" | "in_progress" | "complete" | "blocked" | "cancelled" | "deferred";
                     id: number;
                     createdAt: string;
                     updatedAt: string;
                     title: string;
                     displayId: string;
-                    itemType: "task" | "workstream" | "goal" | "routine";
+                    itemType: "task" | "routine";
                     projectIsGeneral: boolean;
                     subtaskCount: number;
                     subtasksComplete: number;
@@ -1973,13 +2066,13 @@ export declare const trpc: import("@trpc/client").TRPCClient<import("@trpc/serve
                 grouped: {
                     date: string;
                     items: {
-                        status: "pending" | "in_progress" | "complete" | "blocked" | "cancelled" | "deferred" | "active" | "paused";
+                        status: "pending" | "in_progress" | "complete" | "blocked" | "cancelled" | "deferred";
                         id: number;
                         createdAt: string;
                         updatedAt: string;
                         title: string;
                         displayId: string;
-                        itemType: "task" | "workstream" | "goal" | "routine";
+                        itemType: "task" | "routine";
                         projectIsGeneral: boolean;
                         subtaskCount: number;
                         subtasksComplete: number;
@@ -2030,13 +2123,13 @@ export declare const trpc: import("@trpc/client").TRPCClient<import("@trpc/serve
                         status: string;
                     }[];
                     blockerCount: number;
-                    status: "pending" | "in_progress" | "complete" | "blocked" | "cancelled" | "deferred" | "active" | "paused";
+                    status: "pending" | "in_progress" | "complete" | "blocked" | "cancelled" | "deferred";
                     id: number;
                     createdAt: string;
                     updatedAt: string;
                     title: string;
                     displayId: string;
-                    itemType: "task" | "workstream" | "goal" | "routine";
+                    itemType: "task" | "routine";
                     projectIsGeneral: boolean;
                     subtaskCount: number;
                     subtasksComplete: number;
@@ -2079,13 +2172,13 @@ export declare const trpc: import("@trpc/client").TRPCClient<import("@trpc/serve
             } | undefined;
             output: {
                 items: {
-                    status: "pending" | "in_progress" | "complete" | "blocked" | "cancelled" | "deferred" | "active" | "paused";
+                    status: "pending" | "in_progress" | "complete" | "blocked" | "cancelled" | "deferred";
                     id: number;
                     createdAt: string;
                     updatedAt: string;
                     title: string;
                     displayId: string;
-                    itemType: "task" | "workstream" | "goal" | "routine";
+                    itemType: "task" | "routine";
                     projectIsGeneral: boolean;
                     subtaskCount: number;
                     subtasksComplete: number;
@@ -2400,7 +2493,7 @@ export declare const trpc: import("@trpc/client").TRPCClient<import("@trpc/serve
                     count: number;
                     withTasks: number;
                 };
-                workstreams: {
+                projects: {
                     count: number;
                 };
             };
@@ -2414,15 +2507,9 @@ export declare const trpc: import("@trpc/client").TRPCClient<import("@trpc/serve
                     tasksUpdated: number;
                 };
                 projects: {
+                    projectsFound: number;
                     projectsCreated: number;
                     projectsUpdated: number;
-                };
-                filesystem: {
-                    synced: number;
-                    created: number;
-                    updated: number;
-                    skipped: number;
-                    conflicts: number;
                     errors: number;
                 };
             };
@@ -2480,16 +2567,13 @@ export declare const trpc: import("@trpc/client").TRPCClient<import("@trpc/serve
             input: void;
             output: {
                 total: number;
-                byProject: {
-                    project: string;
-                    count: number;
-                    workstreams: {
-                        file: string;
-                        title: string;
-                        status: string;
-                        type: "workstream" | "sub-project";
-                        priority: number | undefined;
-                    }[];
+                projects: {
+                    slug: string;
+                    name: string;
+                    org: string;
+                    status: string | null;
+                    isSubProject: boolean;
+                    parentSlug: string | undefined;
                 }[];
             };
             meta: object;
@@ -2497,65 +2581,10 @@ export declare const trpc: import("@trpc/client").TRPCClient<import("@trpc/serve
         filesystem: import("@trpc/server").TRPCMutationProcedure<{
             input: void;
             output: {
-                synced: number;
-                created: number;
-                updated: number;
-                skipped: number;
-                conflictsCount: number;
-                errorsCount: number;
-                conflicts: import("../lib/server/services/file-sync.js").ConflictInfo[];
+                projectsFound: number;
+                projectsCreated: number;
+                projectsUpdated: number;
                 errors: string[];
-            };
-            meta: object;
-        }>;
-        file: import("@trpc/server").TRPCMutationProcedure<{
-            input: {
-                path: string;
-                force?: boolean | undefined;
-            };
-            output: {
-                action: string;
-                itemId: number | undefined;
-                error: string | undefined;
-                conflict?: undefined;
-            } | {
-                action: "skipped" | "created" | "updated" | "conflict";
-                itemId: number | undefined;
-                error: string | undefined;
-                conflict: import("../lib/server/services/hash-utils.js").ConflictStatus | undefined;
-            };
-            meta: object;
-        }>;
-        itemToFile: import("@trpc/server").TRPCMutationProcedure<{
-            input: {
-                id: number;
-                force?: boolean | undefined;
-            };
-            output: {
-                success: boolean;
-                filePath: string;
-                error: string | undefined;
-                hadConflict: boolean | undefined;
-            };
-            meta: object;
-        }>;
-        conflicts: import("@trpc/server").TRPCQueryProcedure<{
-            input: void;
-            output: {
-                total: number;
-                conflicts: import("../lib/server/services/file-sync.js").ConflictInfo[];
-            };
-            meta: object;
-        }>;
-        resolveConflict: import("@trpc/server").TRPCMutationProcedure<{
-            input: {
-                itemId: number;
-                winner: "file" | "database";
-            };
-            output: {
-                resolved: boolean;
-                winner: string;
-                error: string | undefined;
             };
             meta: object;
         }>;

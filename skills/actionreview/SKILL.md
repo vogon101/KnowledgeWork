@@ -42,28 +42,17 @@ If argument provided:
 
 **A. Query Task Database (Source of Truth)**
 
+Run the standard task queries (see @.claude/skills/task-cli/SKILL.md for full reference):
+
 ```bash
-# Overdue tasks
-.claude/skills/task-cli/scripts/task-cli.sh overdue
-
-# Due today
-.claude/skills/task-cli/scripts/task-cli.sh today
-
-# Due tomorrow / this week
-.claude/skills/task-cli/scripts/task-cli.sh list --due tomorrow
-.claude/skills/task-cli/scripts/task-cli.sh list --due this-week
-
-# Blocked tasks
-.claude/skills/task-cli/scripts/task-cli.sh blocked
-
-# Waiting on others (tasks owned by others)
-.claude/skills/task-cli/scripts/task-cli.sh list --status pending | grep -v "Alice"
-
-# Check-ins due
-.claude/skills/task-cli/scripts/task-cli.sh checkins
-
-# Get specific task status (if unsure)
-.claude/skills/task-cli/scripts/task-cli.sh get T-XXX
+tcli overdue
+tcli today
+tcli blocked
+tcli checkins
+tcli list --due tomorrow
+tcli list --due this-week
+tcli list --status pending | grep -v "Alice"  # Waiting on others
+tcli get T-XXX  # Verify specific task status
 ```
 
 **B. Scan Meeting Actions (Cross-Reference Only)**
@@ -85,9 +74,22 @@ For each active project, check `next-steps.md` for:
 - Pending items
 - Waiting-on items from others
 
-**D. Check Email for Action Items**
+**D. Check Calendar for Commitments**
 
-**Gmail commands:** `search` to find, `get MESSAGE_ID` to read (NOT `message`)
+```bash
+# Recent and upcoming events — check for commitments made in meetings
+.claude/skills/google/scripts/google-cli.sh calendar upcoming --days 14
+.claude/skills/google/scripts/google-cli.sh calendar search "review" --days 14
+```
+
+For each relevant event:
+1. Check if meeting actions are tracked as tasks
+2. Note upcoming meetings that need preparation
+3. Flag commitments from past meetings without corresponding tasks
+
+**E. Check Email for Action Items**
+
+**Gmail commands:** `gmail search` to find, `gmail get MESSAGE_ID` to read (NOT `message`)
 
 ```bash
 # Primary inbox - recent emails that may contain actions
@@ -103,7 +105,7 @@ For each relevant email found:
 3. Note emails that suggest new action items
 4. Note emails waiting for response >3 days
 
-**E. Review personal routines.md**
+**F. Review personal routines.md**
 
 Check `personal/routines.md` for:
 - Recurring tasks

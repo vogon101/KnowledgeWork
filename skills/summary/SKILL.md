@@ -24,92 +24,32 @@ The activity feed is essential for understanding what was accomplished — it sh
 
 Check-ins are scheduled review points for tasks — they surface tasks that need attention even if not "due" today.
 
-## Email Review
+## Calendar & Email Review
 
-**Always** check emails as part of the daily summary.
-
-### Gmail Commands
-
-| Command | Purpose |
-|---------|---------|
-| `search "query"` | Find emails |
-| `get MESSAGE_ID` | Read one email (NOT `message`) |
+Check calendar and emails using the google skill. See @.claude/skills/google/SKILL.md for command reference.
 
 ```bash
-# 1. Search primary inbox (not archived) - includes read and unread
+.claude/skills/google/scripts/google-cli.sh calendar today
+.claude/skills/google/scripts/google-cli.sh calendar upcoming --days 2
 .claude/skills/google/scripts/google-cli.sh gmail search "category:primary in:inbox newer_than:2d"
-
-# 2. Read specific email by ID from search results
-.claude/skills/google/scripts/google-cli.sh gmail get MESSAGE_ID
 ```
 
-**Process emails to identify:**
-- New action items that could become tasks
-- Replies that might update existing tasks
-- Emails related to current projects/tasks
+Include today's meetings in the summary — note which happened, any outcomes or follow-ups.
 
-### PROPOSE Changes, Don't Make Them
+Process emails to identify new action items, task updates, and project-related correspondence.
 
-**Never create or update tasks from emails without asking.**
+**Propose changes, don't make them** — summarise findings, use `AskUserQuestion`, wait for confirmation before creating/updating tasks.
 
-1. Summarise what you found
-2. Propose specific changes (new tasks, status updates, etc.)
-3. Use `AskUserQuestion` to get confirmation
-4. Only make changes after user confirms
+## Project Status Updates (MANDATORY)
 
-**Example:**
-```
-Based on your emails, I'd suggest:
+For each active project with today's activity (tasks, emails, meetings), check and update its README status block. See the "Project READMEs" section in @FRAMEWORK-INSTRUCTIONS.md for the update process and template.
 
-1. **New task:** "Review budget for John" (due Fri)
-   → From John's email requesting Q1 budget review
-
-2. **Update T-1234:** Unblock and resume
-   → Sarah's reply confirms project is approved
-
-3. **FYI (no action):** HR holiday schedule
-
-Which of these would you like me to do?
-```
-
-**Link emails to existing tasks:** If an email relates to an existing task, propose updating that task rather than creating a new one.
-
-**Wait for confirmation before making any changes.**
-
-## Project Status Updates
-
-For projects that had activity today (including email correspondence), update their README:
-
-**Check gmail for each active project:**
+Search gmail per project for recent correspondence:
 ```bash
 .claude/skills/google/scripts/google-cli.sh gmail search "subject:project-name newer_than:2d"
 ```
 
-**Include email context in Current Status:**
-- "🟢 **Budget approval** — John confirmed via email (28 Jan)"
-- "⏳ **Legal review** — awaiting response from Sarah (email sent 25 Jan)"
-- "🟡 **Timeline concerns** — James raised issues in email, need to address"
-
-**PROPOSE README updates** and ask user to confirm before editing.
-
-Update the status summary in the README:
-
-```markdown
-<!-- AI_STATUS_START -->
-**Status Summary** (DD Month YYYY)
-
-**Recent**: What happened recently (1-2 bullet points)
-**Current**: What's the overall state right now
-**Blocked/Waiting**: Any blockers or things awaited (or "None")
-**Next**: Immediate next steps
-<!-- AI_STATUS_END -->
-```
-
-Place this after the main heading, before `## Overview`. This is the **primary status section** — you can remove redundant "Current Status" sections.
-
-**If you lack context** to write an accurate status update, use `AskUserQuestion` to clarify what's happened, what's blocked, or what's next. Don't guess — ask.
-
-See `content/DOCUMENT-FORMATS.md` for full spec.
+Propose README updates and confirm with user before editing.
 
 ## Next Steps
 
