@@ -2,7 +2,7 @@
  * Status Constants
  *
  * Mappings between database statuses and their markdown representations.
- * Used by markdown-sync and file-sync services.
+ * Used by markdown-sync service.
  */
 
 // Status to emoji mappings for markdown display

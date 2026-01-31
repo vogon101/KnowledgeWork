@@ -11,6 +11,12 @@ import { Server as SocketServer } from 'socket.io';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: join(__dirname, '../.env') });
 
+// Load content-level config from {KNOWLEDGE_BASE_PATH}/.data/kw.env (supplements/overrides)
+if (process.env.KNOWLEDGE_BASE_PATH) {
+  const kwEnvPath = join(process.env.KNOWLEDGE_BASE_PATH, '.data', 'kw.env');
+  dotenv.config({ path: kwEnvPath, override: true });
+}
+
 import { getPrisma, closePrisma } from './prisma.js';
 import { initSocketServer } from './events.js';
 

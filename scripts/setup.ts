@@ -181,6 +181,23 @@ async function main() {
   // 2. Create .data directory
   ensureDir(path.join(contentPath, '.data'), '.data/');
 
+  // 2b. Create .data/kw.env placeholder if it doesn't exist
+  const kwEnvPath = path.join(contentPath, '.data', 'kw.env');
+  if (!fs.existsSync(kwEnvPath)) {
+    fs.writeFileSync(kwEnvPath, [
+      '# KnowledgeWork content-level configuration',
+      '# This file is loaded by the server after packages/server/.env',
+      '# Values here supplement or override the main .env',
+      '',
+      '# Calendar IDs to query (set by google-auth script)',
+      '# GOOGLE_CALENDAR_IDS=primary',
+      '',
+    ].join('\n'));
+    info('Created .data/kw.env placeholder');
+  } else {
+    info('.data/kw.env exists');
+  }
+
   // 3. Create .claude directory
   ensureDir(path.join(contentPath, '.claude'), '.claude/');
 
@@ -204,6 +221,7 @@ async function main() {
   // 5. Symlink each framework skill into .claude/skills/
   console.log('\nLinking framework skills...');
   const frameworkSkills = fs.readdirSync(frameworkSkillsPath);
+  const frameworkSkillNames = new Set<string>();
   for (const skillName of frameworkSkills) {
     const skillSource = path.join(frameworkSkillsPath, skillName);
     const skillDest = path.join(contentSkillsPath, skillName);
@@ -212,7 +230,27 @@ async function main() {
     const stats = fs.statSync(skillSource);
     if (!stats.isDirectory()) continue;
 
+    frameworkSkillNames.add(skillName);
     safeCreateSymlink(skillDest, skillSource, `skills/${skillName}`);
+  }
+
+  // 5b. Clean up stale framework skill symlinks (e.g. after renames)
+  const existingSkills = fs.readdirSync(contentSkillsPath);
+  for (const skillName of existingSkills) {
+    const skillPath = path.join(contentSkillsPath, skillName);
+    try {
+      const stats = fs.lstatSync(skillPath);
+      if (stats.isSymbolicLink()) {
+        const target = fs.readlinkSync(skillPath);
+        // If it's a symlink pointing into the framework skills dir but no longer exists there
+        if (target.includes(frameworkSkillsPath) && !frameworkSkillNames.has(skillName)) {
+          fs.unlinkSync(skillPath);
+          info(`Removed stale skill symlink: ${skillName}`);
+        }
+      }
+    } catch {
+      // Ignore errors
+    }
   }
 
   // 6. Migrate local-skills if they exist
@@ -284,6 +322,7 @@ async function main() {
   if (fs.existsSync(frameworkAgentsPath)) {
     console.log('\nLinking framework agents...');
     const frameworkAgents = fs.readdirSync(frameworkAgentsPath);
+    const frameworkAgentNames = new Set<string>();
     for (const agentName of frameworkAgents) {
       const agentSource = path.join(frameworkAgentsPath, agentName);
       const agentDest = path.join(contentAgentsPath, agentName);
@@ -291,7 +330,26 @@ async function main() {
       // Only process .md files
       if (!agentName.endsWith('.md')) continue;
 
+      frameworkAgentNames.add(agentName);
       safeCreateSymlink(agentDest, agentSource, `agents/${agentName}`);
+    }
+
+    // Clean up stale framework agent symlinks (e.g. after renames)
+    const existingAgents = fs.readdirSync(contentAgentsPath);
+    for (const agentName of existingAgents) {
+      const agentPath = path.join(contentAgentsPath, agentName);
+      try {
+        const stats = fs.lstatSync(agentPath);
+        if (stats.isSymbolicLink()) {
+          const target = fs.readlinkSync(agentPath);
+          if (target.includes(frameworkAgentsPath) && !frameworkAgentNames.has(agentName)) {
+            fs.unlinkSync(agentPath);
+            info(`Removed stale agent symlink: ${agentName}`);
+          }
+        }
+      } catch {
+        // Ignore errors
+      }
     }
   }
 

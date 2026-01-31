@@ -519,7 +519,7 @@ export const queryRouter = router({
       return {
         items: items.map((item) => {
           // Get blockers from ItemLink system
-          const blockers = item.linksTo.map(link => ({
+          const blockers = item.linksTo.filter(link => link.from != null).map(link => ({
             id: link.from.id,
             displayId: formatTaskId(link.from.id),
             title: link.from.title,

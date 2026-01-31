@@ -70,8 +70,6 @@ export const TaskStatusSchema = z.enum([
   'blocked',
   'cancelled',
   'deferred',
-  'active',  // Workstream status
-  'paused',  // Workstream status
 ]);
 export type TaskStatus = z.infer<typeof TaskStatusSchema>;
 
@@ -139,25 +137,6 @@ export const UpdateProjectSchema = CreateProjectSchema.partial();
 export type UpdateProject = z.infer<typeof UpdateProjectSchema>;
 
 // =============================================================================
-// WORKSTREAMS
-// =============================================================================
-
-export const WorkstreamSchema = z.object({
-  id: z.number(),
-  project_id: z.number(),
-  name: z.string().min(1),
-  description: z.string().nullable().optional(),
-  target_period: TargetPeriodSchema,
-  status: ProjectStatusSchema.nullable().optional(),
-  created_at: z.string().optional(),
-  updated_at: z.string().optional(),
-});
-export type Workstream = z.infer<typeof WorkstreamSchema>;
-
-export const CreateWorkstreamSchema = WorkstreamSchema.omit({ id: true, created_at: true, updated_at: true });
-export type CreateWorkstream = z.infer<typeof CreateWorkstreamSchema>;
-
-// =============================================================================
 // MEETINGS
 // =============================================================================
 
@@ -195,7 +174,6 @@ export const TaskSchema = z.object({
   // Relationships (IDs)
   owner_id: z.number().nullable().optional(),
   project_id: z.number().nullable().optional(),
-  workstream_id: z.number().nullable().optional(),
   parent_task_id: z.number().nullable().optional(),
   blocked_by_task_id: z.number().nullable().optional(), // Task that is blocking this one
   source_meeting_id: z.number().nullable().optional(),
@@ -227,7 +205,6 @@ export const TaskWithRelationsSchema = TaskSchema.extend({
   project_slug: z.string().nullable().optional(),
   project_name: z.string().nullable().optional(),
   project_org: z.string().nullable().optional(),
-  workstream_name: z.string().nullable().optional(),
   source_meeting_title: z.string().nullable().optional(),
   source_meeting_path: z.string().nullable().optional(),
   due_meeting_title: z.string().nullable().optional(),
@@ -295,7 +272,6 @@ export const TaskQuerySchema = z.object({
   owner_name: z.string().optional(),
   project_id: z.number().optional(),
   project_slug: z.string().optional(),
-  workstream_id: z.number().optional(),
   parent_task_id: z.number().optional(),
   source_meeting_id: z.number().optional(),
   has_due_date: z.boolean().optional(),

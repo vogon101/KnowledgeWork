@@ -43,7 +43,7 @@ src/
 │   └── ...
 │
 ├── services/
-│   ├── file-sync.ts       # Markdown ↔ DB sync
+│   ├── project-sync.ts    # Markdown ↔ DB sync
 │   └── meeting-parser.ts  # Meeting file parsing
 │
 ├── prisma.ts              # Prisma client setup
