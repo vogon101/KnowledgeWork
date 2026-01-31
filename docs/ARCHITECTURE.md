@@ -115,7 +115,7 @@ packages/server/src/
 │       ├── people.ts     # People directory
 │       └── sync.ts       # File sync operations
 ├── services/             # Business logic
-│   ├── file-sync.ts      # Markdown ↔ DB sync
+│   ├── project-sync.ts   # Markdown ↔ DB sync
 │   └── meeting-parser.ts # Meeting file parsing
 ├── prisma/
 │   └── schema.prisma     # Database schema

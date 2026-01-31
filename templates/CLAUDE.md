@@ -17,6 +17,13 @@ Personal assistant for managing projects, tasks, and priorities.
 
 **Framework instructions**: See @FRAMEWORK-INSTRUCTIONS.md for standard Knowledge Agent behavior.
 
+**Project READMEs**: Keep project READMEs current — update the status block after every work session, email exchange, or meeting that affects a project. See the "Project READMEs" section in FRAMEWORK-INSTRUCTIONS.md.
+
+**Post-email checklist**: After completing email-related tasks, ALWAYS follow this order before moving on:
+1. Update the relevant project README with email outcomes (propose changes, confirm with user)
+2. Add check-ins for any follow-up dates to existing tasks (don't create new tasks for calls/meetings)
+3. Update diary briefly — reference the project README rather than duplicating detail
+
 **Document formats**: See @DOCUMENT-FORMATS.md for diary, meeting, and project file formats.
 
 ---

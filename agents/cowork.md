@@ -150,7 +150,7 @@ Triggered by: "draft email", "write email", "email to"
 Triggered by: "context", "status", "what's happening with"
 
 **Process:**
-1. Parse project identifier from `--project org/slug` or `--project slug`
+1. Parse project identifier from `--project org/slug` (org prefix is required)
 2. Read: `{org}/projects/{slug}/README.md`
 3. Read: `{org}/projects/{slug}/next-steps.md` (if exists)
 4. Check `.claude/context/working-memory.md` for recent entries

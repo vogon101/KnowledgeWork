@@ -8,13 +8,11 @@ This document explains KnowledgeWork's features, why they exist, and how they're
 
 ### Tasks (Items)
 
-The central unit of work. Everything actionable is an "Item" in the database, with a type field distinguishing tasks, workstreams, and goals.
+The central unit of work. Everything actionable is an "Item" in the database, with a type field distinguishing different kinds of tasks.
 
 | Type | Purpose | Example |
 |------|---------|---------|
 | `task` | Single actionable item | "Review Q1 budget" |
-| `workstream` | Ongoing area of work | "Nuclear Tracker Development" |
-| `goal` | Target outcome with deadline | "Launch MVP by Q2" |
 
 **Statuses:**
 - `pending` - Not started
@@ -123,7 +121,7 @@ Organization (client/context)
 **Projects:**
 - Specific initiatives within an org
 - Have status (active, paused, complete)
-- Can have parent/child relationships
+- Can have parent/child relationships (workstreams are child projects)
 - Each org has a `_general` project for ungrouped tasks
 
 **Why this design:**
@@ -303,7 +301,7 @@ tcli sync item T-42                     # Push DB changes to file
 - Meeting notes create tasks, then DB tracks status
 
 **Architecture:**
-- `server/src/services/file-sync.ts` - Bidirectional sync
+- `server/src/services/project-sync.ts` - Bidirectional sync
 - `server/src/services/meeting-parser.ts` - Meeting action extraction
 - `sync.ts` router for sync operations
 
@@ -340,4 +338,4 @@ The AI needs to know who "you" are for default task assignment.
 | Smart detection | Avoid duplicates, use check-ins | `task-patterns.ts`, prompts |
 | Notifications | AI→User real-time updates | `events.ts`, `ai-content-notifier.tsx` |
 | CLI | Parseable AI interface | `skills/task-cli/` |
-| Sync | DB as truth, markdown as content | `file-sync.ts`, `meeting-parser.ts` |
+| Sync | DB as truth, markdown as content | `project-sync.ts`, `meeting-parser.ts` |

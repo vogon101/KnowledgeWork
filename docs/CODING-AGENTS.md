@@ -190,7 +190,7 @@ The database is authoritative for task state. Markdown files are synced *from* t
                                       ▼
                               ┌──────────────┐
                               │  Sync Layer  │
-                              │ (file-sync,  │
+                              │(project-sync,│
                               │ markdown-sync)│
                               └──────────────┘
 ```
@@ -201,7 +201,7 @@ The database is authoritative for task state. Markdown files are synced *from* t
 3. **Never** edit task status directly in markdown files (will be overwritten)
 
 **Services:**
-- `file-sync.ts` - Syncs workstream files (markdown frontmatter ↔ Item records)
+- `project-sync.ts` - Syncs project files (markdown frontmatter ↔ Project records)
 - `markdown-sync.ts` - Writes task status back to meeting action tables
 - `meeting-parser.ts` - Parses meeting markdown, creates tasks
 
@@ -342,7 +342,7 @@ KnowledgeWork/                # Framework repo
 │   │       │   ├── index.ts      # Root router
 │   │       │   └── trpc.ts       # tRPC setup
 │   │       ├── services/         # Business logic
-│   │       │   ├── file-sync.ts
+│   │       │   ├── project-sync.ts
 │   │       │   ├── markdown-sync.ts
 │   │       │   └── meeting-parser.ts
 │   │       └── prisma/
@@ -391,7 +391,7 @@ Content Repo/                 # Separate repo (your data)
 | `api-types/src/schemas/item.ts` | Item/Task type definitions | Adding/removing task fields |
 | `server/src/trpc/routers/items.ts` | Task CRUD operations | Changing task behavior |
 | `server/src/trpc/routers/query.ts` | Complex queries (today, overdue) | Adding query shortcuts |
-| `server/src/services/file-sync.ts` | Markdown ↔ DB sync | Changing sync behavior |
+| `server/src/services/project-sync.ts` | Markdown ↔ DB sync | Changing sync behavior |
 | `web/src/components/task-list/` | Task list UI | Changing task display |
 | `web/src/lib/trpc.ts` | tRPC client setup | Rarely |
 
@@ -446,6 +446,19 @@ if (data.newField !== undefined) updateData.newField = data.newField;
 ```
 
 6. **UI** (as needed in components)
+
+### Renaming or Moving a Skill/Agent
+
+When renaming a skill directory (e.g., `skills/gmail` → `skills/google`), you must update **all** of these:
+
+1. **The skill directory** itself (rename, update `package.json`, scripts, `SKILL.md`)
+2. **`pnpm-workspace.yaml`** — update the workspace entry
+3. **`scripts/setup.ts`** — update any hardcoded paths (e.g., lib symlink creation)
+4. **All `allowed-tools`** in skill and agent frontmatter referencing the old path
+5. **All command references** in skill `.md` files, agent `.md` files, and other skills
+6. **Content repo symlinks** — the setup script cleans up stale symlinks automatically, but you may need to run `pnpm setup:content` or manually update symlinks in the content repo's `.claude/skills/` directory
+
+**The setup script handles stale symlinks**: When re-run, it removes symlinks pointing to framework paths that no longer exist. But if you need immediate effect without re-running setup, manually update the content repo symlink.
 
 ### Adding a New Query
 

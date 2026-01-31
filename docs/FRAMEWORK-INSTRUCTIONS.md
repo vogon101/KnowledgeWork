@@ -9,13 +9,12 @@ Generic instructions for Knowledge Agents working with KnowledgeWork content rep
 ## Session Startup
 
 1. `.claude/context/working-memory.md` is auto-loaded — review it for context
-2. Read `INDEX.md` - project status and priorities
-3. Check task service (start from framework repo with `pnpm dev:server` if needed):
+2. Check task service (start from framework repo with `pnpm dev:server` if needed):
    - `.claude/skills/task-cli/scripts/task-cli.sh today` — tasks due today
    - `.claude/skills/task-cli/scripts/task-cli.sh checkins` — check-ins due
    - `.claude/skills/task-cli/scripts/task-cli.sh routines due` — today's routines
    - `.claude/skills/task-cli/scripts/task-cli.sh activity --limit 20` — recent activity
-4. Check/create today's diary file (`diary/YYYY/MM/DD-DOW.md`)
+3. Check/create today's diary file (`diary/YYYY/MM/DD-DOW.md`)
 
 ---
 
@@ -34,7 +33,6 @@ When resuming work on a project, load context in this order:
 
 | File | Purpose |
 |------|---------|
-| `INDEX.md` | Project status, priorities, quick links |
 | `.claude/context/working-memory.md` | Private scratchpad (auto-loaded) |
 | `.claude/context/background.md` | User background, roles, key people |
 | `diary/YYYY/MM/DD-DOW.md` | Daily work log |
@@ -66,6 +64,24 @@ Only write files within the content directory. When the user mentions files in o
 Don't duplicate data from authoritative sources:
 - **Task Database** → All actionable work items (source of truth)
 - **Content repo** → Strategy, context, notes that *aren't* in the task system
+
+### Task Status Verification
+
+Task statuses in narrative sources (diary entries, meeting notes, working memory, project docs) go stale. Always verify from the database:
+
+```bash
+# Verify one task
+tcli get T-42
+
+# Verify multiple tasks mentioned in a document
+tcli get T-42,T-43,T-44
+```
+
+**Rules:**
+- Before writing a task status in any document, query the DB first
+- When resuming a session and reading yesterday's diary, re-check any task IDs mentioned
+- When copying task lists between documents, always re-query
+- Use batch get liberally — it's cheap
 
 ---
 
@@ -144,9 +160,9 @@ This sends a toast notification to the web UI with an "Open" button linking dire
 **ALWAYS use the task CLI** (`.claude/skills/task-cli/scripts/task-cli.sh`) for all task database operations.
 
 ### Dates
-**ALWAYS use explicit dates** (e.g., "Saturday 11 Jan", "15 January") - never vague terms like "this weekend" or "next week".
+Use explicit dates (e.g., "Saturday 11 Jan", "15 January") rather than vague terms like "this weekend" or "next week".
 
-**ALWAYS use the dates skill** — never calculate dates mentally:
+Use the dates skill rather than calculating mentally:
 ```bash
 .claude/skills/dates/scripts/date_context.sh
 ```
@@ -213,6 +229,42 @@ This file enables quick context restoration. Track these 5 things:
 
 ---
 
+## Project READMEs
+
+Project READMEs are the **primary record** of each project's current state. They must be kept current with every workflow.
+
+### When to Update
+
+- After working on a project (tasks completed, status changes)
+- After receiving or sending emails about a project
+- During `/resumeday`, `/summary`, or `/end-day` workflows
+- After meetings that affect project status
+
+### What to Update
+
+The `<!-- AI_STATUS_START -->` block should reflect:
+- Current status including email correspondence, blockers, decisions
+- Recent activity (meetings, emails, task completions)
+- What's being waited on and from whom
+
+### How to Update
+
+1. Check gmail for recent project-related emails
+2. Read the project's README.md
+3. Compare current status block against reality (emails, task DB, meetings)
+4. **PROPOSE updates** to the user — never edit without confirmation
+5. Update the `<!-- AI_STATUS_START -->` block with confirmed changes
+
+### Update Hierarchy
+
+Every workflow should update in this order:
+1. **Task Database** — source of truth for actionable items
+2. **Working Memory** — session context and blockers
+3. **Project READMEs** — current status for each active project
+4. **Diary** — brief log of what happened
+
+---
+
 ## Diary
 
 - **Location**: `diary/YYYY/MM/DD-DOW.md`
@@ -221,6 +273,7 @@ This file enables quick context restoration. Track these 5 things:
   - Diary is a brief log of what happened, not the canonical record
 - **Include**: meetings, tasks completed, knowledge base changes, decisions
 - **Keep it brief**: Reference project docs rather than duplicating content
+- **Task references**: When mentioning tasks, query current status from DB — don't copy from previous diary entries
 
 ---
 
