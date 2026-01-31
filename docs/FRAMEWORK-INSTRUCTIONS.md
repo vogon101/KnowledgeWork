@@ -24,7 +24,7 @@ When resuming work on a project, load context in this order:
 
 1. **Project README.md** — overview, status, key decisions
 2. **Project next-steps.md** — current state, blockers, next actions
-3. **Task Database** — `tcli list --project <slug>` for active tasks
+3. **Task Database** — `tcli list --project <org>/<slug>` for active tasks
 4. **Other files** — meeting notes, context docs as needed
 
 ---

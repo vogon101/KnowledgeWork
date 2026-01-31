@@ -176,13 +176,13 @@ Triggered by: "context", "status", "what's happening with"
 ## Argument Parsing
 
 Arguments can be passed in natural language. Extract:
-- `--project <org>/<slug>` or `--project <slug>` - Project to scope to
+- `--project <org>/<slug>` - Project to scope to (org prefix is required)
 - Main query/topic - What to research/who to email/etc.
 - `about "..."` - Subject matter (for emails)
 
 Examples:
 - "research housing policy trends 2026" → mode=research, query="housing policy trends 2026"
-- "research Street Votes --project inventory-system" → mode=research, query="Street Votes", project="inventory-system"
+- "research Street Votes --project acme-corp/inventory-system" → mode=research, query="Street Votes", project="acme-corp/inventory-system"
 - "draft email to John about trip update" → mode=email, recipient="John", subject="trip update"
 - "context --project acme-corp/inventory-system" → mode=context, project="acme-corp/inventory-system"
 
@@ -197,8 +197,8 @@ Examples:
 ## Project Path Resolution
 
 When `--project` is specified:
-- If format is `org/slug`: Use directly as `{org}/projects/{slug}/`
-- If format is just `slug`: Try common orgs (acme-corp, personal) or search with Glob
+- Format must be `org/slug`: Use directly as `{org}/projects/{slug}/`
+- Bare slugs without org are not supported — always require org prefix
 
 ## Gmail CLI Usage
 

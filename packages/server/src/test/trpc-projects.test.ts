@@ -176,7 +176,7 @@ describe('tRPC Projects Router', () => {
       }
 
       const project = listResult.projects[0];
-      const path = await caller.projects.resolvePath({ slug: project.slug });
+      const path = await caller.projects.resolvePath({ slug: project.slug, org: project.org });
 
       expect(path).not.toBeNull();
       expect(path!.slug).toBe(project.slug);
@@ -185,7 +185,7 @@ describe('tRPC Projects Router', () => {
     });
 
     it('should return null for non-existent project', async () => {
-      const path = await caller.projects.resolvePath({ slug: 'non-existent-xyz' });
+      const path = await caller.projects.resolvePath({ slug: 'non-existent-xyz', org: 'other' });
       expect(path).toBeNull();
     });
   });

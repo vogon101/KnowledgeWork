@@ -1511,7 +1511,7 @@ program
       let parentId: number | undefined;
       if (options.parent) {
         try {
-          const parent = await trpc.projects.get.query({ slug: options.parent });
+          const parent = await trpc.projects.get.query({ slug: options.parent, org: options.org });
           parentId = parent.id;
         } catch {
           console.log(formatError(`Parent project not found: ${options.parent}`));

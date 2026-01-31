@@ -335,7 +335,7 @@ type Response = {
 Get a project with task counts.
 
 ```typescript
-const { data } = trpc.projects.get.useQuery({ id: 1 });
+const { data } = trpc.projects.get.useQuery({ slug: 'my-project', org: 'acme-corp' });
 
 type Response = Project & {
   taskCount: number;

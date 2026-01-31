@@ -349,7 +349,7 @@ tcli list [options]
 
 Options:
   --type TYPE       Item type (task, workstream, goal, routine)
-  --project SLUG    Project slug
+  --project ORG/SLUG  Project (requires org/slug format, e.g. myorg/website)
   --owner NAME      Owner name (partial match)
   --due DATE        Due date filter (today, tomorrow, this-week, YYYY-MM-DD)
   --status STATUS   Status filter (comma-separated: pending,in_progress,blocked)

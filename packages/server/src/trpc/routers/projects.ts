@@ -279,12 +279,13 @@ export const projectsRouter = router({
   resolvePath: publicProcedure
     .input(z.object({
       slug: z.string(),
-      org: z.string().optional(),
+      org: z.string(),
     }))
     .query(async ({ ctx, input }) => {
-      const where: Prisma.ProjectWhereInput = { slug: input.slug };
-      // Filter by organization relation, not legacy org column
-      if (input.org) where.organization = { slug: input.org };
+      const where: Prisma.ProjectWhereInput = {
+        slug: input.slug,
+        organization: { slug: input.org },
+      };
 
       const project = await ctx.prisma.project.findFirst({
         where,
